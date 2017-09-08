@@ -1,2 +1,2 @@
-# autoencoders
-Experiments building autoencoders in Keras
+# Autoencoders
+Personal experiments building autoencoders in Keras
