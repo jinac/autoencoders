@@ -122,6 +122,7 @@ class VAE_GAN(object):
         """
         Construct GAN to teach decoder/generator to trick critic.
         """
+        self.critic.trainable = False
         gan = Model(self.decoder.inputs[0], self.critic(self.decoder.output))
         gan.compile(optimizer=critic_opt(lr=critic_learning_rate),
                     loss='binary_crossentropy')
@@ -147,16 +148,13 @@ class VAE_GAN(object):
          y_train) = self._prep_data(x_train)
 
         # 1. Train Autoencoder.
-        self.critic.trainable = False  # Freeze critic for gen training.
         ae_loss = self.autoencoder.train_on_batch(x_train, y_train)
 
         # 2. Train Critic (Discriminator).
-        self.critic.trainable = True  # Unfreeze critic.
         critic_loss = self.critic.train_on_batch(x_neg, y_neg)
         critic_loss += self.critic.train_on_batch(x_pos, y_pos)
 
         # 3. Train Generator.
-        self.critic.trainable = False
         gan_loss = self.gan.train_on_batch(
             self.encoder.predict_on_batch(x_train), y_pos)
 

@@ -3,8 +3,8 @@ Using ideas from https://arxiv.org/pdf/1511.05644.pdf
 """
 from keras.layers import (Dense, Dropout, Flatten,
                           Input, Reshape)
-from keras.layers.convolutional import Conv2DTranspose
 from keras.layers.advanced_activations import LeakyReLU
+from keras.layers.convolutional import Conv2DTranspose
 from keras.models import Model
 from keras.optimizers import Adam, SGD
 
@@ -106,6 +106,7 @@ class AAE(object):
         We train the reconstruction and adversarial objectives together.
         """
         if self.joint_train:
+            self.critic.trainable = False
             autoencoder = Model(self.encoder.input,
                                 [self.decoder(self.encoder.output),
                                  self.critic(self.encoder.output)])
@@ -124,6 +125,7 @@ class AAE(object):
         """
         Construct GAN to teach encoder/generator to trick critic.
         """
+        self.critic.trainable = False
         gan = Model(self.encoder.input, self.critic(self.encoder.output))
         gan.compile(optimizer=critic_opt(lr=critic_learning_rate),
                     loss='binary_crossentropy')
@@ -153,7 +155,6 @@ class AAE(object):
          y_train) = self._prep_data(x_train)
 
         # 1. Train Autoencoder.
-        self.critic.trainable = False  # Freeze critic for gen training.
         loss = self.autoencoder.train_on_batch(x_train, y_train)
         if self.joint_train:
             _, ae_loss, gan_loss = loss
@@ -161,7 +162,7 @@ class AAE(object):
             ae_loss = loss
 
         # 2. Train Critic (Discriminator).
-        self.critic.trainable = True  # Unfreeze critic.
+        # self.critic.trainable = True  # Unfreeze critic.
         critic_loss = self.critic.train_on_batch(x_neg, y_neg)
         critic_loss += self.critic.train_on_batch(x_pos, y_pos)
 
@@ -169,7 +170,6 @@ class AAE(object):
         # Note: this is not executed if autoencoder training
         # includes generator trick loss.
         if not self.joint_train:
-            self.critic.trainable = False
             gan_loss = self.gan.train_on_batch(x_train, y_pos)
 
         sum_loss = ae_loss + critic_loss + gan_loss

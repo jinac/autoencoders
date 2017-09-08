@@ -119,6 +119,7 @@ class ARAE(object):
         """
         Construct GAN to teach generator to trick critic of latent space.
         """
+        self.critic.trainable = False
         gan = Model(self.generator.input, self.critic(self.generator.output))
         gan.compile(optimizer=critic_opt(lr=critic_learning_rate),
                     loss='binary_crossentropy')
@@ -157,12 +158,10 @@ class ARAE(object):
         ae_loss = self.autoencoder.train_on_batch(x_train, y_train)
 
         # 2. Train Critic.
-        self.critic.trainable = True  # Unfreeze critic.
         critic_loss = self.critic.train_on_batch(x_neg, y_neg)
         critic_loss += self.critic.train_on_batch(x_pos, y_pos)
 
         # 3. Train Generator to trick updated critic.
-        self.critic.trainable = False
         gen_loss = self.gan.train_on_batch(gen_noise, y_pos)
 
         sum_loss = ae_loss + critic_loss + gen_loss
