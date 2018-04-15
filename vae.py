@@ -2,113 +2,113 @@
 Implementation of VAE
 """
 from keras import backend
-from keras.layers import (Activation, Dense, Dropout)
-
-from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import Conv2DTranspose
-from keras.losses import binary_crossentropy
+from keras.layers import (Input, Activation,
+                          Dense, Dropout,
+                          Flatten, Lambda,
+                          Reshape)
+from keras.losses import binary_crossentropy, mse
 from keras.models import Model
-from keras.optimizers import Adam, SGD
+from keras.optimizers import Adam
 
 import numpy as np
 
 from blocks import (bn_dense,
-                    bn_conv_layer,
-                    bn_deconv_layer)
+                    bn_deconv_layer,
+                    convnet,
+                    deconvnet)
 
 
-class VAE_GAN(object):
+class VAE(object):
     def __init__(self, input_dim, latent_dim,
+                 hidden_dim=512,
+                 enc_param=64,
+                 dec_param=16,
                  ae_opt=Adam,
-                 ae_learning_rate=0.0001,
-                 critic_opt=Adam,
-                 critic_learning_rate=0.0001):
+                 ae_learning_rate=0.0002,
+                 mu=0., std_dev=1.):
 
         # Define IO dimensions for models.
-        self.in_dim = input_dim
+        self.img_dim = input_dim
         self.latent_dim = latent_dim
+
+        # Misc parameters.
+        self.hidden_dim = hidden_dim
+        self.enc_param = enc_param
+        self.dec_param = dec_param
+        self.mu = mu
+        self.std_dev = std_dev
+        self.ae_opt = ae_opt
+        self.ae_learning_rate = ae_learning_rate
 
         # Component networks.
         (self.encoder,
-         self.vae_loss_fn) = self._construct_encoder(input_dim,
-                                                     latent_dim)
-        self.decoder = self._construct_decoder(latent_dim,
-                                               input_dim)
-        self.critic = self._construct_critic(input_dim,
-                                             critic_opt,
-                                             critic_learning_rate)
-
-        self.gan = self._construct_gan(critic_opt, critic_learning_rate)
-        self.autoencoder = self._construct_ae(ae_opt, ae_learning_rate)
+         self.vae_loss_fn) = self._construct_encoder()
+        self.decoder = self._construct_decoder()
+        self.autoencoder = self._construct_ae()
 
 
-    def _construct_encoder(self, in_dim, out_dim):
-        x = Input(shape=in_dim)
-        conv_1 = bn_conv_layer(x, 128, 3)
-        conv_2 = bn_conv_layer(conv_1, 64, 3)
-        conv_3 = bn_conv_layer(conv_2, 32, 3)
-        flat_1 = Flatten()(conv_3)
-        do = Dropout(0.3)(flat_1)
-        fc_1 = bn_dense(do, 256)
-        z_mu = Dense(out_dim)(fc_1)
-        z_log_sigma = Dense(out_dim)(fc_1)
+    def _construct_encoder(self):
+        """
+        """
+        img = Input(shape=self.img_dim)
+        conv_block = convnet(img, self.enc_param)
+        flat_1 = Flatten()(conv_block)
+        fc_1 = bn_dense(flat_1, self.hidden_dim)
+        z_mu = Dense(self.latent_dim)(fc_1)
+        z_log_sigma = Dense(self.latent_dim)(fc_1)
 
         def sample_z(args):
-            z_mu, z_log_sigma = args
+            mu, log_sigma = args
             epsilon = backend.random_normal(
-                shape=backend.shape(z_mu),
-                mean=0., stddev=1.0)
-            return z_mu + backend.exp(z_log_sigma / 2) * epsilon
+                shape=backend.shape(mu),
+                mean=self.mu, stddev=self.std_dev)
+            return mu + backend.exp(log_sigma / 2) * epsilon
 
         def vae_loss_fn(x, x_decoded_mean):
             x = backend.flatten(x)
             x_decoded_mean = backend.flatten(x_decoded_mean)
-            flat_dim = np.product(in_dim)
-            xent_loss = flat_dim * binary_crossentropy(x, x_decoded_mean)
-            kl_loss = -0.5 * backend.sum(1 + z_log_sigma - backend.square(z_mu) - backend.exp(z_log_sigma), axis=-1)
+            # flat_dim = np.product(self.img_dim)
+            # xent_loss = flat_dim * binary_crossentropy(x, x_decoded_mean)
+            xent_loss = backend.sum(binary_crossentropy(x, x_decoded_mean))
+            # xent_loss = mse(x, x_decoded_mean)
+            # xent_loss = backend.mean(
+            #     backend.sum(
+            #         backend.square(x_decoded_mean - x)))
+            kl_loss = -0.5 * backend.sum(
+                1 + z_log_sigma - backend.square(z_mu) - backend.exp(z_log_sigma), axis=-1)
             return xent_loss + kl_loss
 
         z = Lambda(sample_z)([z_mu, z_log_sigma])
 
-        encoder = Model(x, z)
+        encoder = Model(img, z)
         return encoder, vae_loss_fn
 
-    def _construct_decoder(self, in_dim, out_dim):
-        z = Input(shape=(in_dim,))
-        fc_2 = bn_dense(z, 256)
+    def _construct_decoder(self):
+        """
+        """
+        z = Input(shape=(self.latent_dim,))
+        z0 = Dense(self.hidden_dim)(z)
+        deconv_block = deconvnet(z0, self.img_dim, self.dec_param)
+        gen_img = bn_deconv_layer(deconv_block, self.img_dim[-1], 4, 2,
+                                  activation='sigmoid',
+                                  batchnorm=False)
 
-        shp = 8 * np.product(out_dim)
-        ups_1 = Dense(shp, activation='relu')(fc_2)
-
-        shp = (out_dim[0], out_dim[1], 8)
-        reshp_1 = Reshape(shp)(ups_1)
-        deconv_1 = bn_deconv_layer(reshp_1, 128, 3)
-        deconv_2 = bn_deconv_layer(deconv_1, 64, 3)
-        deconv_3 = bn_deconv_layer(deconv_2, 32, 3)
-        x_reconst = Conv2DTranspose(out_dim[2], 3,
-                                    padding='same',
-                                    activation='sigmoid')(deconv_3)
-
-        decoder = Model(z, x_reconst)
+        decoder = Model(z, gen_img)
         return decoder
 
-    def _construct_ae(self, ae_opt, ae_learning_rate):
+    def _construct_ae(self):
         """
         Construct AE and compile for training.
         """
         autoencoder = Model(self.encoder.input,
                             self.decoder(self.encoder.output))
-        autoencoder.compile(optimizer=ae_opt(lr=ae_learning_rate),
+        autoencoder.compile(optimizer=self.ae_opt(lr=self.ae_learning_rate),
                             loss=self.vae_loss_fn)
         return autoencoder
 
 
     def train_on_batch(self, x_train):
-        # Prep data for batch update.
-        (x_neg, y_neg,
-         x_pos, y_pos,
-         y_train) = self._prep_data(x_train)
-
-        ae_loss = self.autoencoder.train_on_batch(x_train, y_train)
-
-        return ae_loss
+        """
+        One gradient training on input batch. 
+        """
+        return self.autoencoder.train_on_batch(x_train, x_train)

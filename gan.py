@@ -24,8 +24,8 @@ from blocks import (bn_dense,
 
 class GAN(object):
     def __init__(self, input_dim, img_dim,
-                 g_hidden=64,
-                 d_hidden=64,
+                 g_hidden=16,
+                 d_hidden=16,
                  gen_opt=Adam,
                  gen_learning_rate=0.0001,
                  critic_opt=Adam,
@@ -51,20 +51,22 @@ class GAN(object):
 
     def _construct_generator(self):
         z = Input(shape=(self.in_dim,))
-        z0 = bn_dense(z, self.g_hidden * 64 * 4 * 4, 'selu')
-        z3 = Reshape((4, 4, self.g_hidden * 64))(z0)
+        # z0 = bn_dense(z, self.g_hidden * 64 * 4 * 4, 'selu')
+        z0 = Reshape((1, 1, self.in_dim))(z)
+        z1 = bn_deconv_layer(
+            z0, 16 * self.g_hidden, 4, 4, activation='selu', batchnorm=False)
         # z2 = bn_deconv_layer(
         #     z1, 32 * self.g_hidden, 4, 2, activation='selu', batchnorm=False)
         # z3 = bn_deconv_layer(
-        #     z2, 16 * self.g_hidden, 4, 2, activation='selu', batchnorm=False)
+        #     z1, 16 * self.g_hidden, 4, 2, activation='selu', batchnorm=False)
         z4 = bn_deconv_layer(
-            z3, 8 * self.g_hidden, 4, 2, activation='selu', batchnorm=False)
+            z1, 8 * self.g_hidden, 4, 2, activation='selu', batchnorm=False)
         z5 = bn_deconv_layer(
             z4, 4 * self.g_hidden, 4, 2, activation='selu', batchnorm=False)
         z6 = bn_deconv_layer(
             z5, 2 * self.g_hidden, 4, 2, activation='selu', batchnorm=False)
         gen_img = bn_deconv_layer(
-            z6, self.img_dim[-1], 4, 2, activation='tanh')
+            z6, self.img_dim[-1], 4, 2, activation='tanh', batchnorm=False)
 
         generator = Model(z, gen_img)
         generator.compile(optimizer=self.critic_opt(lr=self.critic_lr),
@@ -102,7 +104,7 @@ class GAN(object):
         gan = Model(self.generator.inputs[0],
                     self.critic(self.generator.output))
         gan.compile(optimizer=self.gen_opt(lr=self.gen_lr),
-                    loss='binary_crossentropy')
+                    loss='mse')
         return gan
 
     def _prep_fake(self, batch_size):
@@ -128,7 +130,7 @@ class GAN(object):
         return (sum_loss, critic_loss, gen_loss)
 
 
-def save_grid(fname, generator):
+def save_grid(fname, generator, z_sample):
     cell_size = (64, 64, 3)
     n = 15
 
@@ -137,11 +139,10 @@ def save_grid(fname, generator):
     figure = np.zeros([cell_size[0] * n,
                        cell_size[1] * n,
                        cell_size[2]])
+    x_decoded = generator.predict(z_sample)
     for i, yi in enumerate(grid_x):
         for j, xi in enumerate(grid_y):
-            z_sample = np.array([[xi, yi]])
-            x_decoded = generator.predict(z_sample.reshape(1, 2))
-            cell = x_decoded[0].reshape(*cell_size)
+            cell = x_decoded[i * n + j].reshape(*cell_size)
             figure[i * cell_size[0]: (i + 1) * cell_size[0],
                    j * cell_size[1]: (j + 1) * cell_size[1],
                    :] = cell
@@ -153,18 +154,23 @@ def save_grid(fname, generator):
 
 
 def main():
-    train_dir = '/mnt/scratch/code/data/danbooru2017_faces'
-    prefix = 'danbooru_animegan_1'
-    num_samples = 2008945
-    # num_epochs = 300
-    num_epochs = 5
+    train_dir = '/mnt/scratch/code/data/animeface_subset/'
+    prefix = 'animegan_1'
+    num_samples = 8200
+    batch_size = 100
+
+    # train_dir = '/mnt/scratch/code/data/anime_subset/'
+    # prefix = 'anime_subset_1'
+    # num_samples = 2252
+    # batch_size = 4
+
+    num_epochs = 100
+    # num_epochs = 5
     img_size = (64, 64, 3)
     z_dim = 100
     cmode = 'rgb'
-    batch_size = 71
     num_batches = num_samples / batch_size
 
-    gan = GAN(z_dim, img_size)
 
     img_dg = ImageDataGenerator(rescale=1./255, horizontal_flip=True)
     train_data = img_dg.flow_from_directory(train_dir,
@@ -173,12 +179,19 @@ def main():
                                             batch_size=batch_size,
                                             class_mode=None)
 
+    gan = GAN(z_dim, img_size)
+    print gan.generator.summary()
+    print gan.critic.summary()
+    print gan.gan.summary()
+
+    z_sample = np.random.normal(size=[15**2, z_dim]).astype('float32')
+
     for epoch in xrange(num_epochs):
         print('Epoch {} of {}'.format(epoch + 1, num_epochs))
         progress_bar = Progbar(target=num_batches)
 
         epoch_critic_loss = []
-        epoch_generator_loss = []
+        epoch_gen_loss = []
         epoch_sum_loss = []
 
         for batch_idx in xrange(num_batches):
@@ -189,22 +202,26 @@ def main():
             
             epoch_sum_loss.append(sum_loss)
             epoch_critic_loss.append(critic_loss)
-            epoch_generator_loss.append(gen_loss)
+            epoch_gen_loss.append(gen_loss)
 
         print ''
         print 'gan loss: ', np.mean(np.array(epoch_sum_loss), axis=0)
         print 'generator loss: ', np.mean(np.array(epoch_gen_loss), axis=0)
-        print 'discriminator loss: ', np.mean(np.array(epoch_disc_loss), axis=0)
+        print 'discriminator loss: ', np.mean(np.array(epoch_critic_loss), axis=0)
 
         # Save sample
-        if (epoch % 50) == 0:
+        if (epoch % 10) == 0:
             save_grid('{}_epoch_{}.png'.format(prefix, epoch),
-                      gan.generator)
+                      gan.generator, z_sample)
 
     # Save model.
     with open(prefix + '_generator.json', 'w') as json_file:
         json_file.write(gan.generator.to_json())
-    generator.save_weights(prefix + '_generator.h5')
+    gan.generator.save_weights(prefix + '_generator.h5')
+    save_grid('{}_epoch_{}.png'.format(prefix, epoch),
+              gan.generator,
+              z_sample)
+
 
 if __name__ == '__main__':
     main()

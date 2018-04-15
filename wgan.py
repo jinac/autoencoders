@@ -12,7 +12,7 @@ from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import Conv2DTranspose
 from keras.losses import binary_crossentropy
 from keras.models import Model
-from keras.optimizers import Adam, SGD
+from keras.optimizers import Adam, SGD, RMSprop
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils.generic_utils import Progbar
 
@@ -29,10 +29,10 @@ from loss import wasserstein_loss
 class WGAN(object):
     def __init__(self, input_dim, img_dim,
                  g_hidden=16,
-                 d_hidden=64,
-                 gen_opt=Adam,
+                 d_hidden=16,
+                 gen_opt=RMSprop,
                  gen_learning_rate=0.00005,
-                 critic_opt=Adam,
+                 critic_opt=RMSprop,
                  critic_learning_rate=0.00005,
                  train_ratio=5,
                  clamp=0.01):
@@ -76,7 +76,7 @@ class WGAN(object):
         z6 = bn_deconv_layer(
             z5, 2 * self.g_hidden, 4, 2, activation='selu', batchnorm=False)
         gen_img = bn_deconv_layer(
-            z6, self.img_dim[-1], 4, 2, activation='tanh')
+            z6, self.img_dim[-1], 4, 2, activation='tanh', batchnorm=False)
 
         generator = Model(z, gen_img)
         generator.compile(optimizer=self.critic_opt(lr=self.critic_lr),
@@ -110,6 +110,7 @@ class WGAN(object):
         return critic
 
     def _construct_gan(self):
+        self.generator.trainable = True
         self.critic.trainable = False
         gan = Model(self.generator.inputs[0],
                     self.critic(self.generator.output))
@@ -132,26 +133,27 @@ class WGAN(object):
         # 1. Train Critic (discriminator).
         for _ in xrange(self.train_ratio):
             # Train on real.
-            critic_loss = self.critic.train_on_batch(x_train, np.ones(batch_size))
+            critic_loss = self.critic.train_on_batch(x_train, -np.ones(batch_size))
             # Train on fakes.
             z_fake, x_fake = self._prep_fake(batch_size)
             critic_loss += self.critic.train_on_batch(
-                x_fake, -1. * np.ones(batch_size))
+                x_fake, np.ones(batch_size))
+
+            # Clip weights trick.
+            self._clip_weights()
 
         # 2. Train Generator.
-        self.critic.trainable = False
+        # self.critic.trainable = False
         z_fake = np.random.uniform(0., 1., [batch_size, self.in_dim])
-        gen_loss = self.gan.train_on_batch(z_fake, np.ones(batch_size))
-        self.critic.trainable = True
+        gen_loss = self.gan.train_on_batch(z_fake, -np.ones(batch_size))
+        # self.critic.trainable = True
 
-        # 3. Clip weights trick.
-        self._clip_weights()
-
+        critic_loss = 0.5 * critic_loss
         sum_loss = critic_loss + gen_loss
         return (sum_loss, critic_loss, gen_loss)
 
 
-def save_grid(fname, generator):
+def save_grid(fname, generator, z_sample):
     cell_size = (64, 64, 3)
     n = 15
 
@@ -160,7 +162,6 @@ def save_grid(fname, generator):
     figure = np.zeros([cell_size[0] * n,
                        cell_size[1] * n,
                        cell_size[2]])
-    z_sample = np.random.uniform(0., 1., [15**2, 100])
     x_decoded = generator.predict(z_sample)
     for i, yi in enumerate(grid_x):
         for j, xi in enumerate(grid_y):
@@ -177,7 +178,7 @@ def save_grid(fname, generator):
 
 def main():
     train_dir = '/mnt/scratch/code/data/animeface_subset/'
-    prefix = 'animegan_1'
+    prefix = 'animewgan_1'
     num_samples = 8200
     batch_size = 100
 
@@ -204,6 +205,9 @@ def main():
     gan = WGAN(z_dim, img_size)
     print gan.generator.summary()
     print gan.critic.summary()
+    print gan.gan.summary()
+
+    z_sample = np.random.normal(size=[15**2, z_dim]).astype('float32')
 
     for epoch in xrange(num_epochs):
         print('Epoch {} of {}'.format(epoch + 1, num_epochs))
@@ -229,15 +233,17 @@ def main():
         print 'discriminator loss: ', np.mean(np.array(epoch_critic_loss), axis=0)
 
         # Save sample
-        if (epoch % 50) == 0:
+        if (epoch % 10) == 0:
             save_grid('{}_epoch_{}.png'.format(prefix, epoch),
-                      gan.generator)
+                      gan.generator, z_sample)
 
     # Save model.
     with open(prefix + '_generator.json', 'w') as json_file:
         json_file.write(gan.generator.to_json())
-    generator.save_weights(prefix + '_generator.h5')
-    save_grid('{}_epoch_{}.png'.format(prefix, epoch),gan.generator)
+    gan.generator.save_weights(prefix + '_generator.h5')
+    save_grid('{}_epoch_{}.png'.format(prefix, epoch),
+              gan.generator,
+              z_sample)
 
 
 if __name__ == '__main__':
