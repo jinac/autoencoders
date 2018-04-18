@@ -15,7 +15,7 @@ def get_data_iter(data_dir, batch_size=32, target_size=(64, 64, 3)):
         cmode = 'grayscale'
 
     img_dg = ImageDataGenerator(rescale=1./255,
-                                horizontal_flip=True)
+                                horizontal_flip=False)
     train_data = img_dg.flow_from_directory(data_dir,
                                             color_mode=cmode,
                                             target_size=target_size[:2],
@@ -28,6 +28,7 @@ def get_data_iter(data_dir, batch_size=32, target_size=(64, 64, 3)):
 
 def reconstruct(encoder, decoder, input_fname, img_dim=(64, 64)):
     img = cv2.resize(cv2.imread(input_fname), img_dim)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = (1. / 255) * img
     
     enc_vec = encoder.predict(np.array([img]))
@@ -60,8 +61,10 @@ def sample_grid_2d(decoder,
 
 class GenSampler(object):
     def __init__(self, num_samples=32, latent_dim=128):
-        self.sample = np.random.normal(
+        self.noise = np.random.normal(
             size=[num_samples, latent_dim]).astype('float32')
 
-    def sample(self, decoder):
-        return decoder.predict_on_batch(self.sample)
+    def sample(self, generator):
+        sample_imgs = generator.predict_on_batch(self.noise)
+        sample_img = (255 * sample_imgs).astype(np.uint8)
+        return sample_imgs

@@ -87,7 +87,7 @@ class ARAE(object):
         fc_3 = bn_dense(z, 64)
         fc_4 = bn_dense(fc_3, 128)
         fc_5 = bn_dense(fc_4, 256)
-        code_fake = bn_dense(fc_5, 2)
+        code_fake = bn_dense(fc_5, self.latent_dim)
 
         generator = Model(z, code_fake)
         return generator
@@ -114,8 +114,7 @@ class ARAE(object):
         autoencoder = Model(self.encoder.input,
                             self.decoder(self.encoder.output))
         autoencoder.compile(optimizer=self.ae_opt(lr=self.ae_learning_rate),
-                            loss='mse')
-                            # loss='binary_crossentropy')
+                            loss='binary_crossentropy')
         return autoencoder
 
     def _construct_gan(self):

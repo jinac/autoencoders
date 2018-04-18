@@ -85,11 +85,11 @@ class WGAN_GP(object):
         z6 = bn_deconv_layer(
             z5, 2 * self.g_hidden, 4, 2, activation='selu', batchnorm=False)
         gen_img = bn_deconv_layer(
-            z6, self.img_dim[-1], 4, 2, activation='tanh', batchnorm=False)
+            z6, self.img_dim[-1], 4, 2, activation='sigmoid', batchnorm=False)
 
         generator = Model(z, gen_img)
-        generator.compile(optimizer=self.critic_opt(lr=self.critic_lr),
-                          loss='mse')
+        # generator.compile(optimizer=self.critic_opt(lr=self.critic_lr),
+        #                   loss='mse')
         return generator
 
     def _construct_critic(self):
@@ -111,7 +111,7 @@ class WGAN_GP(object):
         # d8 = bn_conv_layer(
         #     d7, 64 * self.d_hidden, 4, 2, activation='selu', batchnorm=False)
         d_flat = Flatten()(d4)
-        disc_out = bn_dense(d_flat, 1, activation=None, use_bias=False)
+        disc_out = bn_dense(d_flat, 1, activation='linear', use_bias=False)
 
         critic = Model(img, disc_out)
         critic.compile(optimizer=self.critic_opt(lr=self.critic_lr),
@@ -180,10 +180,8 @@ class WGAN_GP(object):
                  np.zeros(minibatch_size)])
 
         # 2. Train Generator.
-        self.critic.trainable = False
         z_fake = self._prep_fake(batch_size)
         gen_loss = self.gan.train_on_batch(z_fake, np.ones(batch_size))
-        self.critic.trainable = True
 
         sum_loss = critic_loss + gen_loss
         return (sum_loss, critic_loss, gen_loss)

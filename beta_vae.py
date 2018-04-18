@@ -18,9 +18,10 @@ from blocks import (bn_dense,
                     deconvnet)
 
 
-class VAE(object):
+class B_VAE(object):
     def __init__(self, input_dim, latent_dim,
                  hidden_dim=512,
+                 beta=1,
                  enc_param=64,
                  dec_param=16,
                  ae_opt=Adam,
@@ -32,6 +33,7 @@ class VAE(object):
         self.latent_dim = latent_dim
 
         # Misc parameters.
+        self.beta = beta
         self.hidden_dim = hidden_dim
         self.enc_param = enc_param
         self.dec_param = dec_param
@@ -51,7 +53,7 @@ class VAE(object):
         """
         """
         img = Input(shape=self.img_dim)
-        conv_block = convnet(img, self.enc_param)
+        conv_block = convnet(img, self.enc_param, bias=False)
         flat_1 = Flatten()(conv_block)
         fc_1 = bn_dense(flat_1, self.hidden_dim)
         z_mu = Dense(self.latent_dim)(fc_1)
@@ -69,9 +71,11 @@ class VAE(object):
             x_decoded_mean = backend.flatten(x_decoded_mean)
             flat_dim = np.product(self.img_dim)
             xent_loss = flat_dim * binary_crossentropy(x, x_decoded_mean)
-            kl_loss = -0.5 * backend.sum(
-                1 + z_log_sigma - backend.square(z_mu) - backend.exp(z_log_sigma), axis=-1)
-            return xent_loss + kl_loss
+            kl_loss = -0.5 * backend.sum(1 + z_log_sigma -
+                                         backend.square(z_mu) -
+                                         backend.exp(z_log_sigma),
+                                         axis=-1)
+            return xent_loss + (self.beta * kl_loss)
 
         z = Lambda(sample_z)([z_mu, z_log_sigma])
 
@@ -83,7 +87,7 @@ class VAE(object):
         """
         z = Input(shape=(self.latent_dim,))
         z0 = Dense(self.hidden_dim)(z)
-        deconv_block = deconvnet(z0, self.img_dim, self.dec_param)
+        deconv_block = deconvnet(z0, self.img_dim, self.dec_param, bias=False)
         gen_img = bn_deconv_layer(deconv_block, self.img_dim[-1], 4, 2,
                                   activation='sigmoid', batchnorm=False)
 

@@ -1,7 +1,10 @@
 """
-Implementation of VAE
+Implementation of VAE-MMD
+
+See:
+http://szhao.me/2017/06/10/a-tutorial-on-mmd-variational-autoencoders.html
 """
-from keras import backend
+from keras import backend as K
 from keras.layers import (Input, Activation,
                           Dense, Dropout,
                           Flatten, Lambda,
@@ -18,20 +21,43 @@ from blocks import (bn_dense,
                     deconvnet)
 
 
-class VAE(object):
+
+def compute_kernel(x, y):
+    x_size = K.shape(x)[0]
+    y_size = K.shape(y)[0]
+    dim = K.shape(x)[1]
+    tiled_x = K.tile(K.reshape(x,
+                               K.stack([x_size, 1, dim])),
+                               K.stack([1, y_size, 1]))
+    tiled_y = K.tile(K.reshape(y,
+                               K.stack([1, y_size, dim])),
+                               K.stack([x_size, 1, 1]))
+    return K.exp(-K.mean(K.square(tiled_x - tiled_y), axis=2) / K.cast(dim, 'float32'))
+
+
+def mmd_loss_fn(x, y):
+    x_kernel = compute_kernel(x, x)
+    y_kernel = compute_kernel(y, y)
+    xy_kernel = compute_kernel(x, y)
+    return K.mean(x_kernel) + K.mean(y_kernel) - 2 * K.mean(xy_kernel)
+
+
+class VAE_MMD(object):
     def __init__(self, input_dim, latent_dim,
                  hidden_dim=512,
                  enc_param=64,
                  dec_param=16,
                  ae_opt=Adam,
                  ae_learning_rate=0.0002,
-                 mu=0., std_dev=1.):
+                 mu=0., std_dev=1.,
+                 mmd_weight=1.):
 
         # Define IO dimensions for models.
         self.img_dim = input_dim
         self.latent_dim = latent_dim
 
         # Misc parameters.
+        self.mmd_weight = mmd_weight
         self.hidden_dim = hidden_dim
         self.enc_param = enc_param
         self.dec_param = dec_param
@@ -41,8 +67,7 @@ class VAE(object):
         self.ae_learning_rate = ae_learning_rate
 
         # Component networks.
-        (self.encoder,
-         self.vae_loss_fn) = self._construct_encoder()
+        self.encoder, self.vae_loss_fn = self._construct_encoder()
         self.decoder = self._construct_decoder()
         self.autoencoder = self._construct_ae()
 
@@ -54,26 +79,14 @@ class VAE(object):
         conv_block = convnet(img, self.enc_param)
         flat_1 = Flatten()(conv_block)
         fc_1 = bn_dense(flat_1, self.hidden_dim)
-        z_mu = Dense(self.latent_dim)(fc_1)
-        z_log_sigma = Dense(self.latent_dim)(fc_1)
+        z = Dense(self.latent_dim)(fc_1)
 
-        def sample_z(args):
-            mu, log_sigma = args
-            epsilon = backend.random_normal(
-                shape=backend.shape(mu),
-                mean=self.mu, stddev=self.std_dev)
-            return mu + backend.exp(log_sigma / 2) * epsilon
+        def vae_loss_fn(x, x_decoded):
+            reconst_loss = binary_crossentropy(K.flatten(x),
+                                               K.flatten(x_decoded))
+            mmd_loss = mmd_loss_fn(z, K.random_normal(K.shape(z)))
 
-        def vae_loss_fn(x, x_decoded_mean):
-            x = backend.flatten(x)
-            x_decoded_mean = backend.flatten(x_decoded_mean)
-            flat_dim = np.product(self.img_dim)
-            xent_loss = flat_dim * binary_crossentropy(x, x_decoded_mean)
-            kl_loss = -0.5 * backend.sum(
-                1 + z_log_sigma - backend.square(z_mu) - backend.exp(z_log_sigma), axis=-1)
-            return xent_loss + kl_loss
-
-        z = Lambda(sample_z)([z_mu, z_log_sigma])
+            return reconst_loss + (self.mmd_weight * mmd_loss)
 
         encoder = Model(img, z)
         return encoder, vae_loss_fn

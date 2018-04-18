@@ -66,11 +66,11 @@ class GAN(object):
         z6 = bn_deconv_layer(
             z5, 2 * self.g_hidden, 4, 2, activation='selu', batchnorm=False)
         gen_img = bn_deconv_layer(
-            z6, self.img_dim[-1], 4, 2, activation='tanh', batchnorm=False)
+            z6, self.img_dim[-1], 4, 2, activation='sigmoid', batchnorm=False)
 
         generator = Model(z, gen_img)
-        generator.compile(optimizer=self.critic_opt(lr=self.critic_lr),
-                          loss='binary_crossentropy')
+        # generator.compile(optimizer=self.critic_opt(lr=self.critic_lr),
+        #                   loss='binary_crossentropy')
         return generator
 
     def _construct_critic(self):
@@ -92,7 +92,8 @@ class GAN(object):
         # d8 = bn_conv_layer(
         #     d7, 64 * self.d_hidden, 4, 2, activation='selu', batchnorm=False)
         d_flat = Flatten()(d5)
-        disc_out = bn_dense(d_flat, 1, activation='sigmoid')
+        d_dense = bn_dense(d_flat, 1024)
+        disc_out = bn_dense(d_dense, 1, activation='sigmoid')
 
         critic = Model(img, disc_out)
         critic.compile(optimizer=self.critic_opt(lr=self.critic_lr),
@@ -104,26 +105,29 @@ class GAN(object):
         gan = Model(self.generator.inputs[0],
                     self.critic(self.generator.output))
         gan.compile(optimizer=self.gen_opt(lr=self.gen_lr),
-                    loss='mse')
+                    loss='binary_crossentropy')
         return gan
 
     def _prep_fake(self, batch_size):
-        z_fake = np.random.uniform(-1., 1., [batch_size, self.in_dim])
+        z_fake = np.random.normal(0., 1., [batch_size, self.in_dim])
         x_fake = self.generator.predict_on_batch(z_fake)
         return z_fake, x_fake
 
     def train_on_batch(self, x_train):
         batch_size = x_train.shape[0]
+        half_batch = batch_size / 2
+        idx = np.random.randint(0, batch_size, half_batch)
 
         # 1. Train Critic (discriminator).
         # Train on real.
-        critic_loss = self.critic.train_on_batch(x_train, np.ones(batch_size))
+        critic_loss = self.critic.train_on_batch(x_train[idx], np.ones(half_batch))
         # Train on fakes.
-        z_fake, x_fake = self._prep_fake(batch_size)
-        critic_loss += self.critic.train_on_batch(x_fake, np.zeros(batch_size))
+        z_fake, x_fake = self._prep_fake(half_batch)
+        critic_loss += self.critic.train_on_batch(x_fake, np.zeros(half_batch))
+        critic_loss *= 0.5
 
         # 2. Train Generator.
-        z_fake = np.random.uniform(-1., 1., [batch_size, self.in_dim])
+        z_fake = np.random.normal(0., 1., [batch_size, self.in_dim])
         gen_loss = self.gan.train_on_batch(z_fake, np.ones(batch_size))
 
         sum_loss = critic_loss + gen_loss

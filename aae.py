@@ -25,6 +25,8 @@ from blocks import (bn_dense,
 class AAE(object):
     def __init__(self, input_dim, latent_dim,
                  hidden_dim=512,
+                 reconst_weight=1.,
+                 adv_weight=1.,
                  ae_opt=Adam,
                  ae_learning_rate=0.0001,
                  critic_opt=SGD,
@@ -44,6 +46,8 @@ class AAE(object):
         self.hidden_dim = hidden_dim
 
         # Misc variables.
+        self.reconst_weight = reconst_weight
+        self.adv_weight = adv_weight
         self.mu = mu
         self.std_dev = std_dev
         self.ae_opt = ae_opt
@@ -122,9 +126,10 @@ class AAE(object):
                                 [self.decoder(self.encoder.output),
                                  self.critic(self.encoder.output)])
             autoencoder.compile(optimizer=self.ae_opt(lr=self.ae_learning_rate),
-                                loss=['mse',
+                                loss=['binary_crossentropy',
                                       'binary_crossentropy'],
-                                loss_weights=[1./3, 2./3])
+                                loss_weights=[self.reconst_weight,
+                                              self.adv_weight])
         else:
             autoencoder = Model(self.encoder.input,
                                 self.decoder(self.encoder.output))
