@@ -1,5 +1,5 @@
 """
-Implementation of VAE
+Implementation of Variational Autoencoder.
 """
 from keras import backend
 from keras.layers import (Input, Activation,
@@ -49,6 +49,7 @@ class VAE(object):
 
     def _construct_encoder(self):
         """
+        CNN encoder.
         """
         img = Input(shape=self.img_dim)
         conv_block = convnet(img, self.enc_param)
@@ -80,6 +81,7 @@ class VAE(object):
 
     def _construct_decoder(self):
         """
+        CNN decoder.
         """
         z = Input(shape=(self.latent_dim,))
         z0 = Dense(self.hidden_dim)(z)

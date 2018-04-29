@@ -74,6 +74,7 @@ class VAE_MMD(object):
 
     def _construct_encoder(self):
         """
+        CNN encoder.
         """
         img = Input(shape=self.img_dim)
         conv_block = convnet(img, self.enc_param)
@@ -93,6 +94,7 @@ class VAE_MMD(object):
 
     def _construct_decoder(self):
         """
+        CNN decoder.
         """
         z = Input(shape=(self.latent_dim,))
         z0 = Dense(self.hidden_dim)(z)

@@ -1,4 +1,6 @@
 """
+Implementation of Adversarial autoencoder.
+
 Using ideas from https://arxiv.org/pdf/1511.05644.pdf
 """
 from keras import backend
@@ -65,6 +67,7 @@ class AAE(object):
 
     def _construct_encoder(self):
         """
+        CNN encoder.
         """
         img = Input(shape=self.img_dim)
         d1 = bn_conv_layer(img, self.img_dim[-1], 4, 2)
@@ -80,6 +83,7 @@ class AAE(object):
 
     def _construct_decoder(self):
         """
+        CNN decoder.
         """
         z = Input(shape=(self.latent_dim,))
         z0 = Dense(self.hidden_dim)(z)
@@ -100,6 +104,9 @@ class AAE(object):
         return decoder
 
     def _construct_critic(self):
+        """
+        FC Discriminator of latent.
+        """
         z = Input(shape=(self.latent_dim,))
         fc_6 = bn_dense(z, 64, activation=None)
         lk_act_1 = LeakyReLU(0.2)(fc_6)
@@ -165,6 +172,9 @@ class AAE(object):
         return (x_neg, y_neg, x_pos, y_pos, y_train)
 
     def train_on_batch(self, x_train):
+        """
+        One gradient training on input batch. 
+        """
         # Prep data for batch update.
         (x_neg, y_neg,
          x_pos, y_pos,

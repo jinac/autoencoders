@@ -54,6 +54,7 @@ class WAE_MMD(object):
 
     def _construct_encoder(self):
         """
+        CNN encoder with mmd loss.
         """
         img = Input(shape=self.img_dim)
         conv_block = convnet(img, self.enc_param)
@@ -62,6 +63,10 @@ class WAE_MMD(object):
         z = Dense(self.latent_dim)(fc_1)
 
         def mmd_loss_fn(sample_qz, sample_pz):
+            """
+            Taken mmd loss implementation from
+            https://github.com/tolstikhin/wae/blob/master/wae.py 
+            """
             sigma2_p = 1. ** 2
             C_base = 2. * self.latent_dim * self.std_dev
             n = K.shape(sample_pz)[0]
@@ -104,6 +109,7 @@ class WAE_MMD(object):
 
     def _construct_decoder(self):
         """
+        CNN decoder.
         """
         z = Input(shape=(self.latent_dim,))
         z0 = Dense(self.hidden_dim)(z)

@@ -1,4 +1,6 @@
 """
+Implementation of Adversarially regularized autoencoder.
+
 Using ideas from https://arxiv.org/pdf/1706.04223.pdf
 """
 from keras.layers import (Dense, Dropout, Flatten,
@@ -23,8 +25,7 @@ class ARAE(object):
                  ae_learning_rate=0.0001,
                  critic_opt=Adam,
                  critic_learning_rate=0.0001,
-                 mu=0.,
-                 std_dev=1.0):
+                 mu=0., std_dev=1.):
         # Define IO dimensions for models.
         self.img_dim = input_dim
         self.latent_dim = latent_dim
@@ -52,6 +53,7 @@ class ARAE(object):
 
     def _construct_encoder(self):
         """
+        CNN encoder.
         """
         img = Input(shape=self.img_dim)
         d1 = bn_conv_layer(img, self.img_dim[-1], 4, 2)
@@ -67,6 +69,7 @@ class ARAE(object):
 
     def _construct_decoder(self):
         """
+        CNN decoder.
         """
         z = Input(shape=(self.latent_dim,))
         z0 = Dense(self.hidden_dim)(z)
@@ -83,6 +86,9 @@ class ARAE(object):
         return decoder
 
     def _construct_generator(self):
+        """
+        FC latent generator.
+        """
         z = Input(shape=(self.noise_dim,))
         fc_3 = bn_dense(z, 64)
         fc_4 = bn_dense(fc_3, 128)
@@ -93,6 +99,9 @@ class ARAE(object):
         return generator
 
     def _construct_critic(self):
+        """
+        FC Discriminator of latent.
+        """
         code = Input(shape=(self.latent_dim,))
         fc_6 = bn_dense(code, 64, activation=None)
         lk_act_1 = LeakyReLU(0.2)(fc_6)
@@ -128,6 +137,9 @@ class ARAE(object):
         return gan
 
     def _generate_noise(self, batch_size):
+        """
+        Generator batch of noise. Helper function for train_on_batch.
+        """
         return self.sigma * np.random.randn(batch_size,
                                             self.noise_dim) + self.mu
 
@@ -150,6 +162,9 @@ class ARAE(object):
                 y_train)
 
     def train_on_batch(self, x_train):
+        """
+        One gradient training on input batch. 
+        """
         # Prep data for batch update.
         (gen_noise,
          x_neg, y_neg,
