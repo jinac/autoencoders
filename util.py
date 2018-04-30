@@ -2,10 +2,10 @@
 """
 import math
 
+from keras.preprocessing.image import ImageDataGenerator
 import cv2
 import keras
 import numpy as np
-from keras.preprocessing.image import ImageDataGenerator
 
 
 def get_data_iter(data_dir, batch_size=32, target_size=(64, 64, 3)):
@@ -66,5 +66,4 @@ class GenSampler(object):
 
     def sample(self, generator):
         sample_imgs = generator.predict_on_batch(self.noise)
-        sample_img = (255 * sample_imgs).astype(np.uint8)
         return sample_imgs

@@ -3,10 +3,8 @@ Implementation of Adversarially regularized autoencoder.
 
 Using ideas from https://arxiv.org/pdf/1706.04223.pdf
 """
-from keras.layers import (Dense, Dropout, Flatten,
-                          Input, Reshape)
+from keras.layers import Dense, Flatten, Input, Reshape
 from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import Conv2DTranspose
 from keras.models import Model
 from keras.optimizers import Adam
 

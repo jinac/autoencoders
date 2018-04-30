@@ -5,11 +5,8 @@ See:
 http://szhao.me/2017/06/10/a-tutorial-on-mmd-variational-autoencoders.html
 """
 from keras import backend as K
-from keras.layers import (Input, Activation,
-                          Dense, Dropout,
-                          Flatten, Lambda,
-                          Reshape)
-from keras.losses import binary_crossentropy, mse
+from keras.layers import Dense, Flatten, Input
+from keras.losses import binary_crossentropy
 from keras.models import Model
 from keras.optimizers import Adam
 

@@ -5,14 +5,12 @@ See:
 https://github.com/tolstikhin/wae/blob/master/wae.py
 """
 from keras import backend as K
-import tensorflow as tf
-from keras.layers import (Input, Activation,
-                          Dense, Dropout,
-                          Flatten, Lambda,
-                          Reshape)
-from keras.losses import binary_crossentropy, mse
+from keras.layers import Dense, Flatten, Input
+from keras.losses import binary_crossentropy
 from keras.models import Model
 from keras.optimizers import Adam
+
+import tensorflow as tf
 
 import numpy as np
 

@@ -3,20 +3,11 @@ Implementation of Adversarial autoencoder.
 
 Using ideas from https://arxiv.org/pdf/1511.05644.pdf
 """
-from keras import backend
-from keras.layers import (Input, Activation,
-                          Dense, Dropout,
-                          Flatten, Lambda,
-                          Reshape)
+from keras.layers import Dense, Flatten, Input, Reshape
 from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import Conv2DTranspose
 from keras.models import Model
 from keras.optimizers import Adam, SGD
-from keras.preprocessing.image import ImageDataGenerator
-from keras.utils.generic_utils import Progbar
 
-from scipy.stats import norm
-import matplotlib.pyplot as plt
 import numpy as np
 
 from blocks import (bn_dense,

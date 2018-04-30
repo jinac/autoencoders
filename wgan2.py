@@ -6,33 +6,27 @@ https://github.com/OctThe16th/WGAN-GP-with-keras-for-text/blob/master/Exploratio
 from functools import partial
 
 from keras import backend
-from keras.layers import (Input, Activation,
-                          Dense, Dropout,
-                          Flatten, Reshape)
+from keras.layers import (Input, Dense, Dropout,
+                          Flatten, Reshape, Subtract)
 
-from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import Conv2DTranspose
 from keras.layers.merge import _Merge
-from keras.losses import binary_crossentropy
 from keras.models import Model
-from keras.optimizers import Adam, SGD
-from keras.preprocessing.image import ImageDataGenerator
-from keras.utils.generic_utils import Progbar
+from keras.optimizers import Adam
 
-from scipy.stats import norm
-import matplotlib.pyplot as plt
 import numpy as np
 
 from blocks import (bn_dense,
-                    bn_conv_layer,
-                    bn_deconv_layer)
+                    bn_deconv_layer,
+                    convnet,
+                    deconvnet)
 from loss import wasserstein_loss, gradient_penalty_loss
 
 
 class RandomWeightedAverage(_Merge):
     def _merge_function(self, inputs):
-        weights = backend.random_uniform((backend.shape(inputs[0])[0], 1, 1, 1))
-        return (weights * inputs[0]) + ((1 - weights) * inputs[1])
+        real, fake = inputs
+        weights = backend.random_uniform((backend.shape(real)[0], 1, 1, 1))
+        return (weights * real) + ((1 - weights) * fake)
 
 
 class WGAN_GP(object):
@@ -70,22 +64,14 @@ class WGAN_GP(object):
 
     def _construct_generator(self):
         z = Input(shape=(self.in_dim,))
-        # z0 = bn_dense(z, self.g_hidden * 64 * 4 * 4, 'selu')
-        z0 = Reshape((1, 1, self.in_dim))(z)
-        z1 = bn_deconv_layer(
-            z0, 16 * self.g_hidden, 4, 4, activation='selu', batchnorm=False)
-        # z2 = bn_deconv_layer(
-        #     z1, 32 * self.g_hidden, 4, 2, activation='selu', batchnorm=False)
-        # z3 = bn_deconv_layer(
-        #     z1, 16 * self.g_hidden, 4, 2, activation='selu', batchnorm=False)
-        z4 = bn_deconv_layer(
-            z1, 8 * self.g_hidden, 4, 2, activation='selu', batchnorm=False)
-        z5 = bn_deconv_layer(
-            z4, 4 * self.g_hidden, 4, 2, activation='selu', batchnorm=False)
-        z6 = bn_deconv_layer(
-            z5, 2 * self.g_hidden, 4, 2, activation='selu', batchnorm=False)
-        gen_img = bn_deconv_layer(
-            z6, self.img_dim[-1], 4, 2, activation='sigmoid', batchnorm=False)
+        z1 = bn_dense(z, 512)
+        z_reshp = Reshape((1, 1, 512))(z1)
+        deconv_block = deconvnet(z_reshp, self.img_dim, self.g_hidden,
+                                 activation='selu', batchnorm=True,
+                                 bias=False)
+        gen_img = bn_deconv_layer(deconv_block, self.img_dim[-1], 4, 2,
+                                  activation='tanh', batchnorm=False,
+                                  use_bias=False)
 
         generator = Model(z, gen_img)
         # generator.compile(optimizer=self.critic_opt(lr=self.critic_lr),
@@ -94,31 +80,26 @@ class WGAN_GP(object):
 
     def _construct_critic(self):
         img = Input(shape=self.img_dim)
-        d1 = bn_conv_layer(
-            img, self.d_hidden, 4, 2, activation='selu', batchnorm=False)
-        d2 = bn_conv_layer(
-            d1, self.d_hidden, 4, 2, activation='selu', batchnorm=False)
-        d3 = bn_conv_layer(
-            d2, 2 * self.d_hidden, 4, 2, activation='selu', batchnorm=False)
-        d4 = bn_conv_layer(
-            d3, 4 * self.d_hidden, 4, 2, activation='selu', batchnorm=False)
-        # d5 = bn_conv_layer(
-        #     d4, 8 * self.d_hidden, 4, 2, activation='selu', batchnorm=False)
-        # d6 = bn_conv_layer(
-        #     d5, 16 * self.d_hidden, 4, 2, activation='selu', batchnorm=False)
-        # d7 = bn_conv_layer(
-        #     d6, 32 * self.d_hidden, 4, 2, activation='selu', batchnorm=False)
-        # d8 = bn_conv_layer(
-        #     d7, 64 * self.d_hidden, 4, 2, activation='selu', batchnorm=False)
-        d_flat = Flatten()(d4)
-        disc_out = bn_dense(d_flat, 1, activation='linear', use_bias=False)
+        d = convnet(img, self.d_hidden, batchnorm=False,
+                    activation='selu', bias=False)
+        d_flat = Flatten()(d)
+        d_fc = bn_dense(d_flat, 1024, batchnorm=False,
+                        activation='selu', use_bias=False)
+        disc_out = Dense(1, use_bias=False)(d_fc)
 
         critic = Model(img, disc_out)
-        critic.compile(optimizer=self.critic_opt(lr=self.critic_lr),
-                       loss=wasserstein_loss)
+        # critic.compile(optimizer=self.critic_opt(lr=self.critic_lr),
+        #                loss=wasserstein_loss)
         return critic
 
     def _construct_training_critic(self):
+        for l in self.generator.layers:
+            l.trainable = False
+        for l in self.critic.layers:
+            l.trainable = True
+        self.generator.trainable = False
+        self.critic.trainable = True
+
         real_img = Input(shape=self.img_dim)
         disc_real_out = self.critic(real_img)
 
@@ -134,8 +115,6 @@ class WGAN_GP(object):
                                   penalty_weight=self.grad_penalty)
         partial_gp_loss.__name__ = 'gradient_penalty'
 
-        self.generator.trainable = False
-        self.critic.trainable = True
         discriminator = Model(inputs=[real_img, fake_input],
                               outputs=[disc_real_out,
                                        disc_fake_out,
@@ -149,18 +128,23 @@ class WGAN_GP(object):
         return discriminator
 
     def _construct_gan(self):
+        for l in self.generator.layers:
+            l.trainable = True
+        for l in self.critic.layers:
+            l.trainable = False
         self.generator.trainable = True
         self.critic.trainable = False
-        gan = Model(self.generator.inputs[0],
-                    self.critic(self.generator.output))
+
+        z = Input(shape=(self.in_dim,))
+        gan = Model(z, self.critic(self.generator(z)))
         gan.compile(optimizer=self.gen_opt(lr=self.gen_lr,
-                                           beta_1=0.5,
-                                           beta_2=0.9),
+                                           beta_1=0.5, beta_2=0.9),
                     loss=wasserstein_loss)
         return gan
 
     def _prep_fake(self, batch_size):
-        z_fake = np.random.uniform(0., 1., [batch_size, self.in_dim])
+        z_fake = np.random.normal(
+            0., 1.,[batch_size, self.in_dim]).astype(np.float32)
         return z_fake
 
     def train_on_batch(self, x_train):
@@ -168,119 +152,25 @@ class WGAN_GP(object):
 
         # 1. Train Critic (discriminator).
         minibatch_size = batch_size // self.train_ratio
+        critic_loss = []
+
+        pos_y = np.ones((minibatch_size, 1), dtype=np.float32)
+        neg_y = -pos_y
+        dummy_y = np.zeros((minibatch_size, 1), dtype=np.float32)
+
         for i in xrange(self.train_ratio):
-            x_minibatch = x_train[i * minibatch_size:\
+            x_minibatch = x_train[i * minibatch_size:
                                   (i + 1) * minibatch_size,
                                   :, :, :]
             z_fake = self._prep_fake(minibatch_size)
-            critic_loss = self.training_critic.train_on_batch(
-                [x_minibatch, z_fake],
-                [np.ones(minibatch_size),
-                 -np.ones(minibatch_size),
-                 np.zeros(minibatch_size)])
+            critic_loss.append(
+                self.training_critic.train_on_batch([x_minibatch, z_fake],
+                                                    [pos_y, neg_y, dummy_y]))
+        critic_loss = np.mean(critic_loss, axis=0)
 
         # 2. Train Generator.
-        z_fake = self._prep_fake(batch_size)
-        gen_loss = self.gan.train_on_batch(z_fake, np.ones(batch_size))
+        z_fake = self._prep_fake(minibatch_size)
+        gen_loss = self.gan.train_on_batch(z_fake, pos_y)
 
-        sum_loss = critic_loss + gen_loss
+        sum_loss = critic_loss[0] + gen_loss
         return (sum_loss, critic_loss, gen_loss)
-
-
-def save_grid(fname, generator, z_sample):
-    cell_size = (64, 64, 3)
-    n = 15
-
-    grid_x = norm.ppf(np.linspace(0.01, 0.99, n))
-    grid_y = norm.ppf(np.linspace(0.01, 0.99, n))
-    figure = np.zeros([cell_size[0] * n,
-                       cell_size[1] * n,
-                       cell_size[2]])
-    x_decoded = generator.predict(z_sample)
-    for i, yi in enumerate(grid_x):
-        for j, xi in enumerate(grid_y):
-            cell = x_decoded[i * n + j].reshape(*cell_size)
-            figure[i * cell_size[0]: (i + 1) * cell_size[0],
-                   j * cell_size[1]: (j + 1) * cell_size[1],
-                   :] = cell
-
-    plt.figure(figsize=(10, 10))
-    # plt.imshow(figure)
-    plt.imsave(fname, figure)
-    plt.close()
-
-
-def main():
-    train_dir = '/mnt/scratch/code/data/animeface_subset/'
-    prefix = 'animegan_1'
-    num_samples = 8200
-    batch_size = 100
-
-    # train_dir = '/mnt/scratch/code/data/anime_subset/'
-    # prefix = 'anime_subset_1'
-    # num_samples = 2252
-    # batch_size = 4
-
-    num_epochs = 600
-    # num_epochs = 5
-    img_size = (64, 64, 3)
-    z_dim = 100
-    cmode = 'rgb'
-    num_batches = num_samples / batch_size
-
-
-    img_dg = ImageDataGenerator(rescale=1./255, horizontal_flip=True)
-    train_data = img_dg.flow_from_directory(train_dir,
-                                            color_mode=cmode,
-                                            target_size=img_size[:2],
-                                            batch_size=batch_size,
-                                            class_mode=None)
-
-    gan = WGAN_GP(z_dim, img_size)
-    # print gan.generator.summary()
-    # print gan.critic.summary()
-    # print gan.gan.summary()
-    # print gan.training_critic.summary()
-
-    z_sample = np.random.normal(size=[15**2, z_dim]).astype('float32')
-
-    for epoch in xrange(num_epochs):
-        print('Epoch {} of {}'.format(epoch + 1, num_epochs))
-        progress_bar = Progbar(target=num_batches)
-
-        epoch_critic_loss = []
-        epoch_gen_loss = []
-        epoch_sum_loss = []
-
-        for batch_idx in xrange(num_batches):
-            progress_bar.update(batch_idx)
-            batch_xs = train_data.next()
-
-            sum_loss, critic_loss, gen_loss = gan.train_on_batch(batch_xs)
-            critic_loss = np.sum(critic_loss)
-
-            epoch_sum_loss.append(sum_loss)
-            epoch_critic_loss.append(critic_loss)
-            epoch_gen_loss.append(gen_loss)
-
-        print ''
-        print 'gan loss: ', np.mean(np.array(epoch_sum_loss), axis=0)
-        print 'generator loss: ', np.mean(np.array(epoch_gen_loss), axis=0)
-        print 'discriminator loss: ', np.mean(np.array(epoch_critic_loss), axis=0)
-
-        # Save sample
-        if (epoch % 10) == 0:
-            save_grid('{}_epoch_{}.png'.format(prefix, epoch),
-                      gan.generator, z_sample)
-
-    # Save model.
-    with open(prefix + '_generator.json', 'w') as json_file:
-        json_file.write(gan.generator.to_json())
-    generator.save_weights(prefix + '_generator.h5')
-    save_grid('{}_epoch_{}.png'.format(prefix, epoch),
-              gan.generator,
-              z_sample)
-
-
-if __name__ == '__main__':
-    main()

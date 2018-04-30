@@ -1,12 +1,9 @@
 """
 Implementation of Beta VAE
 """
-from keras import backend
-from keras.layers import (Input, Activation,
-                          Dense, Dropout,
-                          Flatten, Lambda,
-                          Reshape)
-from keras.losses import binary_crossentropy, mse
+from keras import backend as K
+from keras.layers import Dense, Flatten, Input, Lambda
+from keras.losses import binary_crossentropy
 from keras.models import Model
 from keras.optimizers import Adam
 
@@ -62,21 +59,19 @@ class B_VAE(object):
 
         def sample_z(args):
             mu, log_sigma = args
-            epsilon = backend.random_normal(
-                shape=backend.shape(mu),
-                mean=self.mu, stddev=self.std_dev)
-            return mu + backend.exp(log_sigma / 2) * epsilon
+            epsilon = K.random_normal(shape=K.shape(mu),
+                                      mean=self.mu,
+                                      stddev=self.std_dev)
+            return mu + K.exp(log_sigma / 2) * epsilon
 
         def vae_loss_fn(x, x_decoded_mean):
-            x = backend.flatten(x)
-            x_decoded_mean = backend.flatten(x_decoded_mean)
+            x = K.flatten(x)
+            x_decoded_mean = K.flatten(x_decoded_mean)
             flat_dim = np.product(self.img_dim)
-            xent_loss = flat_dim * binary_crossentropy(x, x_decoded_mean)
-            kl_loss = -0.5 * backend.sum(1 + z_log_sigma -
-                                         backend.square(z_mu) -
-                                         backend.exp(z_log_sigma),
-                                         axis=-1)
-            return xent_loss + (self.beta * kl_loss)
+            reconst_loss = flat_dim * binary_crossentropy(x, x_decoded_mean)
+            kl_loss = -0.5 * K.sum(
+                1 + z_log_sigma - K.square(z_mu) - K.exp(z_log_sigma), axis=-1)
+            return reconst_loss + (self.beta * kl_loss)
 
         z = Lambda(sample_z)([z_mu, z_log_sigma])
 
