@@ -1,10 +1,10 @@
 """
+Implementation of Adversarially regularized autoencoder.
+
 Using ideas from https://arxiv.org/pdf/1706.04223.pdf
 """
-from keras.layers import (Dense, Dropout, Flatten,
-                          Input, Reshape)
+from keras.layers import Dense, Flatten, Input, Reshape
 from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import Conv2DTranspose
 from keras.models import Model
 from keras.optimizers import Adam
 
@@ -17,81 +17,90 @@ from blocks import (bn_dense,
 
 class ARAE(object):
     def __init__(self, input_dim, latent_dim,
+                 hidden_dim=512,
                  noise_dim=32,
                  ae_opt=Adam,
                  ae_learning_rate=0.0001,
                  critic_opt=Adam,
                  critic_learning_rate=0.0001,
-                 prior_mu=0.,
-                 prior_sigma=10.0):
+                 mu=0., std_dev=1.):
         # Define IO dimensions for models.
-        self.in_dim = input_dim
+        self.img_dim = input_dim
         self.latent_dim = latent_dim
         self.noise_dim = noise_dim
 
-        # Component networks.
-        self.encoder = self._construct_encoder(input_dim,
-                                               latent_dim)
-        self.decoder = self._construct_decoder(latent_dim,
-                                               input_dim)
-        self.generator = self._construct_generator(noise_dim,
-                                                   latent_dim)
-        self.critic = self._construct_critic(latent_dim,
-                                             critic_opt,
-                                             critic_learning_rate)
-
-        self.autoencoder = self._construct_ae(ae_opt, ae_learning_rate)
-        self.gan = self._construct_gan(critic_opt, critic_learning_rate)
+        self.hidden_dim = hidden_dim
+        self.ae_opt = ae_opt
+        self.ae_learning_rate = ae_learning_rate
+        self.critic_opt = critic_opt
+        self.critic_learning_rate = critic_learning_rate
 
         # Latent space prior distribution variables.
-        self.mu = prior_mu
-        self.sigma = prior_sigma
+        self.mu = mu
+        self.sigma = std_dev
 
-    def _construct_encoder(self, in_dim, out_dim):
-        x = Input(shape=in_dim)
-        conv_1 = bn_conv_layer(x, 64, (3, 3))
-        conv_2 = bn_conv_layer(conv_1, 16, (3, 3))
-        conv_3 = bn_conv_layer(conv_2, 8, (3, 3))
-        flat_1 = Flatten()(conv_3)
-        do = Dropout(0.3)(flat_1)
-        fc_1 = bn_dense(do, 128)
-        code_real = Dense(out_dim)(fc_1)
+        # Component networks.
+        self.encoder = self._construct_encoder()
+        self.decoder = self._construct_decoder()
+        self.generator = self._construct_generator()
+        self.critic = self._construct_critic()
 
-        encoder = Model(x, code_real)
+        self.autoencoder = self._construct_ae()
+        self.gan = self._construct_gan()
+
+
+    def _construct_encoder(self):
+        """
+        CNN encoder.
+        """
+        img = Input(shape=self.img_dim)
+        d1 = bn_conv_layer(img, self.img_dim[-1], 4, 2)
+        d2 = bn_conv_layer(d1, 64, 4, 2)
+        d3 = bn_conv_layer(d2, 128, 4, 2)
+        d4 = bn_conv_layer(d3, 256, 4, 2)
+        flat_1 = Flatten()(d4)
+        fc_1 = bn_dense(flat_1, self.hidden_dim)
+        z = Dense(self.latent_dim)(fc_1)
+
+        encoder = Model(img, z)
         return encoder
 
-    def _construct_decoder(self, in_dim, out_dim):
-        code_real = Input(shape=(in_dim,))
-        fc_2 = bn_dense(code_real, 128)
+    def _construct_decoder(self):
+        """
+        CNN decoder.
+        """
+        z = Input(shape=(self.latent_dim,))
+        z0 = Dense(self.hidden_dim)(z)
+        z_reshp = Reshape((1, 1, self.hidden_dim))(z0)
+        z1 = bn_deconv_layer(z_reshp, 256, 4, 4)
+        z2 = bn_deconv_layer(z1, 128, 4, 2)
+        z3 = bn_deconv_layer(z2, 64, 4, 2)
+        z4 = bn_deconv_layer(z3, 32, 4, 2)
+        gen_img = bn_deconv_layer(z4, self.img_dim[-1], 4, 2,
+                                  activation='sigmoid',
+                                  batchnorm=False)
 
-        shp = 8 * np.product(out_dim)
-        ups_1 = Dense(shp, activation='relu')(fc_2)
-
-        shp = (out_dim[0], out_dim[1], 8)
-        reshp_1 = Reshape(shp)(ups_1)
-        deconv_1 = bn_deconv_layer(reshp_1, 8, 3)
-        deconv_2 = bn_deconv_layer(deconv_1, 16, 3)
-        deconv_3 = bn_deconv_layer(deconv_2, 64, 3)
-        x_reconst = Conv2DTranspose(out_dim[2], 3,
-                                    padding='same',
-                                    activation='sigmoid')(deconv_3)
-
-        decoder = Model(code_real, x_reconst)
+        decoder = Model(z, gen_img)
         return decoder
 
-    def _construct_generator(self, in_dim, out_dim):
-        z = Input(shape=(in_dim,))
+    def _construct_generator(self):
+        """
+        FC latent generator.
+        """
+        z = Input(shape=(self.noise_dim,))
         fc_3 = bn_dense(z, 64)
         fc_4 = bn_dense(fc_3, 128)
         fc_5 = bn_dense(fc_4, 256)
-        code_fake = bn_dense(fc_5, 2)
+        code_fake = bn_dense(fc_5, self.latent_dim)
 
         generator = Model(z, code_fake)
         return generator
 
-    def _construct_critic(self, in_dim,
-                          critic_opt, critic_learning_rate):
-        code = Input(shape=(in_dim,))
+    def _construct_critic(self):
+        """
+        FC Discriminator of latent.
+        """
+        code = Input(shape=(self.latent_dim,))
         fc_6 = bn_dense(code, 64, activation=None)
         lk_act_1 = LeakyReLU(0.2)(fc_6)
         fc_7 = bn_dense(lk_act_1, 32, activation=None)
@@ -101,31 +110,34 @@ class ARAE(object):
         real_prob = bn_dense(lk_act_3, 1, activation='sigmoid')
 
         critic = Model(code, real_prob)
-        critic.compile(optimizer=critic_opt(lr=critic_learning_rate),
+        critic.compile(optimizer=self.critic_opt(lr=self.critic_learning_rate),
                        loss='binary_crossentropy')
         return critic
 
-    def _construct_ae(self, ae_opt, ae_learning_rate):
+    def _construct_ae(self):
         """
         Construct AE and compile for training.
         """
         autoencoder = Model(self.encoder.input,
                             self.decoder(self.encoder.output))
-        autoencoder.compile(optimizer=ae_opt(lr=ae_learning_rate),
+        autoencoder.compile(optimizer=self.ae_opt(lr=self.ae_learning_rate),
                             loss='binary_crossentropy')
         return autoencoder
 
-    def _construct_gan(self, critic_opt, critic_learning_rate):
+    def _construct_gan(self):
         """
         Construct GAN to teach generator to trick critic of latent space.
         """
         self.critic.trainable = False
         gan = Model(self.generator.input, self.critic(self.generator.output))
-        gan.compile(optimizer=critic_opt(lr=critic_learning_rate),
+        gan.compile(optimizer=self.critic_opt(lr=self.critic_learning_rate),
                     loss='binary_crossentropy')
         return gan
 
     def _generate_noise(self, batch_size):
+        """
+        Generator batch of noise. Helper function for train_on_batch.
+        """
         return self.sigma * np.random.randn(batch_size,
                                             self.noise_dim) + self.mu
 
@@ -144,10 +156,13 @@ class ARAE(object):
 
         return (gen_noise,
                 x_neg, y_neg,
-                x_pos, y_pos,\
+                x_pos, y_pos,
                 y_train)
 
     def train_on_batch(self, x_train):
+        """
+        One gradient training on input batch. 
+        """
         # Prep data for batch update.
         (gen_noise,
          x_neg, y_neg,

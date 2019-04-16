@@ -1,2 +1,2 @@
 # Autoencoders
-Personal experiments building autoencoders in Keras
+Personal code experiments with autoencoders and generative adversarial networks in Keras
