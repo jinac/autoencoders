@@ -4,11 +4,11 @@ Implementation of WAE-MMD
 See:
 https://github.com/tolstikhin/wae/blob/master/wae.py
 """
-from keras import backend as K
-from keras.layers import Dense, Flatten, Input
-from keras.losses import binary_crossentropy
-from keras.models import Model
-from keras.optimizers import Adam
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Dense, Flatten, Input
+from tensorflow.keras.losses import binary_crossentropy
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 
 import tensorflow as tf
 

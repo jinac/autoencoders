@@ -5,13 +5,13 @@ https://github.com/OctThe16th/WGAN-GP-with-keras-for-text/blob/master/Exploratio
 """
 from functools import partial
 
-from keras import backend
-from keras.layers import (Input, Dense, Dropout,
-                          Flatten, Reshape, Subtract)
+from tensorflow.keras import backend
+from tensorflow.keras.layers import (Input, Dense, Dropout,
+                                     Flatten, Reshape, Subtract)
 
-from keras.layers.merge import _Merge
-from keras.models import Model
-from keras.optimizers import Adam
+from tensorflow.keras.layers.merge import _Merge
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 
 import numpy as np
 

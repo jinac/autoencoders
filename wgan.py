@@ -3,18 +3,16 @@ Implementation of WGAN
 
 https://github.com/tjwei/GANotebooks/blob/master/wgan-keras.ipynb
 """
-from keras import backend
-from keras.layers import (Input, Activation,
-                          Dense, Dropout,
-                          Flatten, Reshape)
-
-from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import Conv2DTranspose
-from keras.losses import binary_crossentropy
-from keras.models import Model
-from keras.optimizers import Adam, SGD, RMSprop
-from keras.preprocessing.image import ImageDataGenerator
-from keras.utils.generic_utils import Progbar
+from tensorflow.keras import backend
+from tensorflow.keras.layers import (Input, Activation,
+                                     Conv2DTranspose, Dense,
+                                     Dropout, Flatten,
+                                     LeakyReLU, Reshape)
+from tensorflow.keras.losses import binary_crossentropy
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam, SGD, RMSprop
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.utils import Progbar
 
 from scipy.stats import norm
 import matplotlib.pyplot as plt

@@ -3,10 +3,10 @@ Implementation of Adversarial autoencoder.
 
 Using ideas from https://arxiv.org/pdf/1511.05644.pdf
 """
-from keras.layers import Dense, Flatten, Input, Reshape
-from keras.layers.advanced_activations import LeakyReLU
-from keras.models import Model
-from keras.optimizers import Adam, SGD
+from tensorflow.keras.layers import (Dense, Flatten, Input,
+                                     LeakyReLU, Reshape) 
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam, SGD
 
 import numpy as np
 

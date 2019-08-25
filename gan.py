@@ -1,18 +1,17 @@
 """
 Implementation of GAN
 """
-from keras import backend
-from keras.layers import (Input, Activation,
-                          Dense, Dropout,
-                          Flatten, Reshape)
-
-from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import Conv2DTranspose
-from keras.losses import binary_crossentropy
-from keras.models import Model
-from keras.optimizers import Adam, SGD
-from keras.preprocessing.image import ImageDataGenerator
-from keras.utils.generic_utils import Progbar
+from tensorflow.keras import backend
+from tensorflow.keras.layers import (Input, Activation,
+                                     Conv2DTranspose,
+                                     Dense, Dropout,
+                                     Flatten, LeakyReLU,
+                                     Reshape)
+from tensorflow.keras.losses import binary_crossentropy
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam, SGD
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.utils import Progbar
 
 from scipy.stats import norm
 import matplotlib.pyplot as plt
@@ -184,9 +183,9 @@ def main():
                                             class_mode=None)
 
     gan = GAN(z_dim, img_size)
-    print gan.generator.summary()
-    print gan.critic.summary()
-    print gan.gan.summary()
+    print(gan.generator.summary())
+    print(gan.critic.summary())
+    print(gan.gan.summary())
 
     z_sample = np.random.normal(size=[15**2, z_dim]).astype('float32')
 
@@ -208,10 +207,10 @@ def main():
             epoch_critic_loss.append(critic_loss)
             epoch_gen_loss.append(gen_loss)
 
-        print ''
-        print 'gan loss: ', np.mean(np.array(epoch_sum_loss), axis=0)
-        print 'generator loss: ', np.mean(np.array(epoch_gen_loss), axis=0)
-        print 'discriminator loss: ', np.mean(np.array(epoch_critic_loss), axis=0)
+        print('')
+        print('gan loss: ', np.mean(np.array(epoch_sum_loss), axis=0))
+        print('generator loss: ', np.mean(np.array(epoch_gen_loss), axis=0))
+        print('discriminator loss: ', np.mean(np.array(epoch_critic_loss), axis=0))
 
         # Save sample
         if (epoch % 10) == 0:

@@ -4,9 +4,9 @@ Implementation of WAE-GAN
 See:
 https://github.com/tolstikhin/wae/blob/master/wae.py
 """
-from keras.layers import Dense, Flatten, Input
-from keras.models import Model
-from keras.optimizers import Adam, SGD
+from tensorflow.keras.layers import Dense, Flatten, Input
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam, SGD
 
 import numpy as np
 

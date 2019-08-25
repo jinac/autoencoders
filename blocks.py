@@ -1,13 +1,15 @@
 """
 Custom Layer Blocks.
 """
-from keras import backend
-from keras.layers import (Activation, Dense, Dropout, Reshape)
-from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import (Conv2D,
-                                        Conv2DTranspose,
-                                        SeparableConv2D)
-from keras.layers.normalization import BatchNormalization
+from tensorflow.keras import backend
+from tensorflow.keras.layers import (Activation,
+                                     BatchNormalization,
+                                     Conv2D,
+                                     Conv2DTranspose,Dense,
+                                     Dropout,
+                                     LeakyReLU,
+                                     Reshape,
+                                     SeparableConv2D)
 
 import math
 
@@ -94,7 +96,7 @@ def convnet(input_img,
                         batchnorm=batchnorm, activation=activation,
                         use_bias=bias)
 
-    for n in xrange(num_layers):
+    for n in range(num_layers):
         num_filters = min(filter_param * (2 ** n), max_filter)
         out = bn_conv_layer(out, num_filters, 4, 2,
                             batchnorm=batchnorm, activation=activation,
@@ -117,7 +119,7 @@ def deconvnet(input_dense, output_dim,
                           4, 4, batchnorm=batchnorm, activation=activation,
                           use_bias=bias)
 
-    for n in xrange(num_layers):
+    for n in range(num_layers):
         num_filters = max(filter_param * (2 ** (num_layers - n)), min_filter)
         out = bn_deconv_layer(out, num_filters, 4, 2,
                               batchnorm=batchnorm, activation=activation,

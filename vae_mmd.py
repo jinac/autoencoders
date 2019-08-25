@@ -4,11 +4,11 @@ Implementation of VAE-MMD
 See:
 http://szhao.me/2017/06/10/a-tutorial-on-mmd-variational-autoencoders.html
 """
-from keras import backend as K
-from keras.layers import Dense, Flatten, Input
-from keras.losses import binary_crossentropy
-from keras.models import Model
-from keras.optimizers import Adam
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Dense, Flatten, Input
+from tensorflow.keras.losses import binary_crossentropy
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 
 import numpy as np
 

@@ -1,11 +1,11 @@
 """
 Implementation of Variational Autoencoder.
 """
-from keras import backend as K
-from keras.layers import Dense, Flatten, Input, Lambda
-from keras.losses import binary_crossentropy
-from keras.models import Model
-from keras.optimizers import Adam
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Dense, Flatten, Input, Lambda
+from tensorflow.keras.losses import binary_crossentropy
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 
 import numpy as np
 

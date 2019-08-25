@@ -2,14 +2,13 @@
 Implementation of BEGAN
 """
 
-from keras import backend as K
-from keras.layers import (Input, Concatenate,
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import (Input, Concatenate,
                           Dense, Dropout,
                           Flatten, Reshape,
                           Subtract)
-
-from keras.models import Model
-from keras.optimizers import Adam
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 
 import numpy as np
 
