@@ -6,13 +6,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import math
 import numpy as np
 
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-SCALE_CONV_FMS = [3, 64, 128]
-SCALE_KERNEL_SIZE = [3, 3, 3]
 
 def loss_fn(x, recon_x, mu, logvar, beta=1.0):
 	reconst_loss = F.binary_cross_entropy(recon_x, x, reduction='sum')
@@ -22,28 +20,25 @@ def loss_fn(x, recon_x, mu, logvar, beta=1.0):
 
 class VAEEncoder(nn.Module):
 	def __init__(self, latent_dim, hidden_dim):
-		super(Encoder, self).__init__()
+		super(VAEEncoder, self).__init__()
 
-		self.conv_layers = nn.ModuleList(
+		self.conv_layers = nn.ModuleList([
 			nn.Conv2d(3, 32, kernel_size=4, stride=2),
 			nn.Conv2d(32, 64, kernel_size=4, stride=2),
 			nn.Conv2d(64, 128, kernel_size=4, stride=2),
 			nn.Conv2d(128, 256, kernel_size=4, stride=2),
-			)
+		])
 
 		self.mu_layer = nn.Linear(hidden_dim, latent_dim)
 		self.logvar_layer = nn.Linear(hidden_dim, latent_dim)
 
 	def forward(self, x):
 		# Convnet.
-		print(x.shape)
 		for layer in self.conv_layers:
 			x = F.relu(layer(x))
-			# print(x.shape)
 
 		# Flatten.
 		x = x.view(x.size()[0], -1)
-		print(x.shape)
 
 		# Fully connected.
 		mu = self.mu_layer(x)
@@ -54,30 +49,38 @@ class VAEEncoder(nn.Module):
 
 class VAEDecoder(nn.Module):
 	def __init__(self, latent_dim, hidden_dim):
+		super(VAEDecoder, self).__init__()
+
 		self.latent_dim = latent_dim
 		self.hidden_dim = hidden_dim
-		self.fc = nn.Linear(latent_dim, hidden_dim)
+		self.fc_layer = nn.Linear(latent_dim, hidden_dim)
 
-		self.conv_layers = nn.ModuleList(
-			nn.ConvTransposed2d(hidden_dim, 128, kernel_size=5, stride=2),
-			nn.ConvTranspose2d(128, 64, kenrnel_size=5, stride=2),
+		self.conv_layers = nn.ModuleList([
+			nn.ConvTranspose2d(hidden_dim, 128, kernel_size=5, stride=2),
+			nn.ConvTranspose2d(128, 64, kernel_size=5, stride=2),
 			nn.ConvTranspose2d(64, 32, kernel_size=6, stride=2),
 			nn.ConvTranspose2d(32, 3, kernel_size=6, stride=2),
-			)
+		])
 
 	def forward(self, z):
-		z = x.view(input.size(0), self.hidden_dim, 1, 1)
+		# FC from latent to hidden dim.
+		z = F.relu(self.fc_layer(z))
 
+		# Unflatten.
+		z = z.view(z.size(0), self.hidden_dim, 1, 1)
+
+		# Convnet.
 		for layer in self.conv_layers[:-1]:
-			z = F.relu(layer(x))
-
-		z = F.sigmoid(layer(x))
+			z = F.relu(layer(z))
+		z = F.sigmoid(self.conv_layers[-1](z))
 
 		return z
 
 
 class VAE(nn.Module):
 	def __init__(self, latent_dim, hidden_dim):
+		super(VAE, self).__init__()
+
 		self.encoder = VAEEncoder(latent_dim, hidden_dim)
 		self.decoder = VAEDecoder(latent_dim, hidden_dim)
 
