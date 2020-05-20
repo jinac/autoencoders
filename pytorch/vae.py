@@ -12,8 +12,8 @@ import numpy as np
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def loss_fn(x, recon_x, mu, logvar, beta=1.0):
-	reconst_loss = F.binary_cross_entropy(recon_x, x, reduction='sum')
+def loss_fn(x, x_reconst, mu, logvar, beta=1.0):
+	reconst_loss = F.binary_cross_entropy(x_reconst, x, reduction='sum')
 	kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 	return reconst_loss + (beta * kl_loss)
 
