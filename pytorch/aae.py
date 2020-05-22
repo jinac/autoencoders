@@ -13,7 +13,6 @@ import numpy as np
 
 def loss_fn(x, x_reconst, critic_out, ones, beta=1.0):
     reconst_loss = F.binary_cross_entropy(x_reconst, x, reduction='sum')
-    print(critic_out.shape, ones.shape)
     critic_loss = F.binary_cross_entropy(critic_out, ones, reduction='sum')
     return reconst_loss + critic_loss
 
@@ -104,7 +103,7 @@ class Critic(nn.Module):
             nn.BatchNorm1d(32),
             nn.ReLU(),
             nn.Linear(32, 1),
-            nn.BatchNorm1d(32),
+            nn.BatchNorm1d(1),
             nn.Sigmoid(),
         )
 

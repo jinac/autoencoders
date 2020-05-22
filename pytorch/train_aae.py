@@ -4,6 +4,7 @@ Training script for aae.
 import os
 
 import numpy as np
+import torch.nn.functional as F
 import torch.optim as optim
 import torch
 
@@ -71,9 +72,11 @@ def main():
             optimizer.step()
 
             # Train gan on fake batch.
-            fake_z = std_dev * np.random.randn(batch_size, latent_dim) + mu
+            fake_z = torch.Tensor(std_dev * np.random.randn(batch_size, latent_dim) + mu)
+            if cuda:
+                fake_z = fake_z.cuda()
             fake_critic = aae_net.gan_fake_forward(fake_z)
-            loss = F.binary_cross_entropy(critic_out, zeros, reduction='sum')
+            loss = F.binary_cross_entropy(fake_critic, zeroes, reduction='sum')
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
