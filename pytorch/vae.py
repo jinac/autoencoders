@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import numpy as np
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def loss_fn(x, x_reconst, mu, logvar, beta=1.0):

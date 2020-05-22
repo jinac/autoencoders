@@ -18,9 +18,12 @@ def main():
 	shuffle = True
 	num_loader_workers = 4
 	beta = 1.0
+	cuda = True
 
 	# Load Encoder, Decoder.
 	model_net = vqvae.VQVAE(latent_dim, hidden_dim, codebook_size)
+	if cuda:
+		model_net.cuda()
 
 	# Set loss fn.
 	loss_fn = vqvae.loss_fn
@@ -41,6 +44,8 @@ def main():
 
 			# Load batch.
 			x, _ = batch_data
+			if cuda:
+				x = x.cuda()
 
 			# Reset gradient.
 			optimizer.zero_grad()
