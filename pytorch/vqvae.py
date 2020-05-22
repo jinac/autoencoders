@@ -13,8 +13,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def loss_fn(x, x_reconst, embed_loss):
-	reconst_loss = F.binary_cross_entropy(x_reconst, x, reduction='sum')
-	return reconst_loss + embed_loss
+    reconst_loss = F.binary_cross_entropy(x_reconst, x, reduction='sum')
+    return reconst_loss + embed_loss
 
 
 # Copied from https://github.com/MishaLaskin/vqvae/blob/master/models/quantizer.py
@@ -82,80 +82,80 @@ class VectorQuantizer(nn.Module):
 
 
 class Encoder(nn.Module):
-	def __init__(self, latent_dim, hidden_dim):
-		super(Encoder, self).__init__()
+    def __init__(self, latent_dim, hidden_dim):
+        super(Encoder, self).__init__()
 
-		self.conv_layers = nn.ModuleList([
-			nn.Conv2d(3, 32, kernel_size=4, stride=2),
-			nn.Conv2d(32, 64, kernel_size=4, stride=2),
-			nn.Conv2d(64, 128, kernel_size=4, stride=2),
-			nn.Conv2d(128, 256, kernel_size=4, stride=2),
-		])
+        self.conv_layers = nn.ModuleList([
+            nn.Conv2d(3, 32, kernel_size=4, stride=2),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.Conv2d(64, 128, kernel_size=4, stride=2),
+            nn.Conv2d(128, 256, kernel_size=4, stride=2),
+        ])
 
-		self.lin_layer = nn.Linear(hidden_dim, latent_dim)
+        self.lin_layer = nn.Linear(hidden_dim, latent_dim)
 
-	def forward(self, x):
-		# Convnet.
-		# print(x.shape)
-		for layer in self.conv_layers:
-			x = F.relu(layer(x))
-			# print(x.shape)
+    def forward(self, x):
+        # Convnet.
+        # print(x.shape)
+        for layer in self.conv_layers:
+            x = F.relu(layer(x))
+            # print(x.shape)
 
-		# Flatten.
-		x = x.view(x.size()[0], -1)
-		# print(x.shape)
+        # Flatten.
+        x = x.view(x.size()[0], -1)
+        # print(x.shape)
 
-		# Fully connected.
-		return self.lin_layer(x)
+        # Fully connected.
+        return self.lin_layer(x)
 
 
 class Decoder(nn.Module):
-	def __init__(self, latent_dim, hidden_dim):
-		super(Decoder, self).__init__()
+    def __init__(self, latent_dim, hidden_dim):
+        super(Decoder, self).__init__()
 
-		self.latent_dim = latent_dim
-		self.hidden_dim = hidden_dim
-		self.fc_layer = nn.Linear(latent_dim, hidden_dim)
+        self.latent_dim = latent_dim
+        self.hidden_dim = hidden_dim
+        self.fc_layer = nn.Linear(latent_dim, hidden_dim)
 
-		self.conv_layers = nn.ModuleList([
-			nn.ConvTranspose2d(hidden_dim, 128, kernel_size=5, stride=2),
-			nn.ConvTranspose2d(128, 64, kernel_size=5, stride=2),
-			nn.ConvTranspose2d(64, 32, kernel_size=6, stride=2),
-			nn.ConvTranspose2d(32, 3, kernel_size=6, stride=2),
-		])
+        self.conv_layers = nn.ModuleList([
+            nn.ConvTranspose2d(hidden_dim, 128, kernel_size=5, stride=2),
+            nn.ConvTranspose2d(128, 64, kernel_size=5, stride=2),
+            nn.ConvTranspose2d(64, 32, kernel_size=6, stride=2),
+            nn.ConvTranspose2d(32, 3, kernel_size=6, stride=2),
+        ])
 
-	def forward(self, z):
-		# FC from latent to hidden dim.
-		z = F.relu(self.fc_layer(z))
+    def forward(self, z):
+        # FC from latent to hidden dim.
+        z = F.relu(self.fc_layer(z))
 
-		# Unflatten.
-		z = z.view(z.size(0), self.hidden_dim, 1, 1)
+        # Unflatten.
+        z = z.view(z.size(0), self.hidden_dim, 1, 1)
 
-		# Convnet.
-		for layer in self.conv_layers[:-1]:
-			z = F.relu(layer(z))
-		z = F.sigmoid(self.conv_layers[-1](z))
+        # Convnet.
+        for layer in self.conv_layers[:-1]:
+            z = F.relu(layer(z))
+        z = F.sigmoid(self.conv_layers[-1](z))
 
-		return z
+        return z
 
 
 class VQVAE(nn.Module):
-	def __init__(self, latent_dim, hidden_dim, codebook_size, beta=0.25):
-		super(VQVAE, self).__init__()
+    def __init__(self, latent_dim, hidden_dim, codebook_size, beta=0.25):
+        super(VQVAE, self).__init__()
 
-		self.encoder = Encoder(latent_dim, hidden_dim)
-		self.decoder = Decoder(latent_dim, hidden_dim)
-		self.quantizer = VectorQuantizer(codebook_size, latent_dim, beta)
-		
-	def encode(self, x):
-		mu, logvar = self.encoder.forward(x)
-		z = self.reparameterize(mu, logvar)
-		return z
+        self.encoder = Encoder(latent_dim, hidden_dim)
+        self.decoder = Decoder(latent_dim, hidden_dim)
+        self.quantizer = VectorQuantizer(codebook_size, latent_dim, beta)
+        
+    def encode(self, x):
+        mu, logvar = self.encoder.forward(x)
+        z = self.reparameterize(mu, logvar)
+        return z
 
-	def decode(self, z):
-		return self.decoder.forward(z)
+    def decode(self, z):
+        return self.decoder.forward(z)
 
-	def forward(self, x):
-		z = self.encoder.forward(x)
-		embed_loss, z_q, perplexity, _, _ = self.quantizer.forward(z)
-		return self.decoder.forward(z), embed_loss, perplexity
+    def forward(self, x):
+        z = self.encoder.forward(x)
+        embed_loss, z_q, perplexity, _, _ = self.quantizer.forward(z)
+        return self.decoder.forward(z), embed_loss, perplexity
