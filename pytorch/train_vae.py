@@ -1,9 +1,12 @@
 """
 Training script for vae, beta-vae.
 """
+import os
+
 import torch.optim as optim
 
 import data_util
+import util
 import vae
 
 
@@ -18,6 +21,7 @@ def main():
 	num_loader_workers = 2
 	beta = 1.0
 	cuda = True
+	save_dir = os.path.dirname(os.path.realpath(__file__))
 
 	# Load Encoder, Decoder.
 	vae_net = vae.VAE(latent_dim, hidden_dim)
@@ -34,8 +38,8 @@ def main():
 	anime_data = data_util.AnimeFaceData(img_dim, batch_size, shuffle, num_loader_workers)
 
 	# Epoch loop
-	for epoch in range(num_epochs):
-		print('Epoch {} of {}'.format(epoch + 1, num_epochs))
+	for epoch in range(1, num_epochs+1):
+		print('Epoch {} of {}'.format(epoch, num_epochs))
 
 		# Batch loop.
 		for i_batch, batch_data in enumerate(anime_data.data_loader, 0):
@@ -54,6 +58,9 @@ def main():
 			loss = loss_fn(x, x_reconst, mu, logvar, beta)
 			loss.backward()
 			optimizer.step()
+
+		if epoch % 500 == 0:
+			util.save_weights(vae_net, os.join(save_dir, 'vae_{}.pth'.format(epoch)))
 
 
 if __name__ == '__main__':

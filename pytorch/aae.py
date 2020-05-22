@@ -11,10 +11,10 @@ import torch.nn.functional as F
 import numpy as np
 
 
-def loss_fn(x, x_reconst, mu, logvar, beta=1.0):
+def loss_fn(x, x_reconst, critic_out, ones, beta=1.0):
 	reconst_loss = F.binary_cross_entropy(x_reconst, x, reduction='sum')
-	kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-	return reconst_loss + (beta * kl_loss)
+	critic_loss = F.binary_cross_entropy(critic_out, ones, reduction='sum')
+	return reconst_loss + critic_loss
 
 
 class Encoder(nn.Module):
@@ -95,20 +95,15 @@ class Critic(nn.Module):
 
 class AAE(nn.Module):
 	def __init__(self, latent_dim, hidden_dim):
-		super(VAE, self).__init__()
+		super(AAE, self).__init__()
 
 		self.encoder = Encoder(latent_dim, hidden_dim)
 		self.decoder = Decoder(latent_dim, hidden_dim)
 		self.critic = Critic(latent_dim)
 
-	def encode(self, x):
-		mu, logvar = self.encoder.forward(x)
-		z = self.reparameterize(mu, logvar)
-		return z
-
-	def decode(self, z):
-		return self.decoder.forward(z)
+	def gan_fake_forward(self, z):
+		return self.critic.forward(z)
 
 	def forward(self, x):
 		z = self.encoder.forward(x)
-		return self.decoder.forward(z)
+		return self.decoder.forward(z), self.critic.forward(z)

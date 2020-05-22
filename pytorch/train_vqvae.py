@@ -1,6 +1,8 @@
 """
 Training script for vqvae
 """
+import os
+
 import torch.optim as optim
 
 import data_util
@@ -19,6 +21,7 @@ def main():
 	num_loader_workers = 4
 	beta = 1.0
 	cuda = True
+	save_dir = os.path.dirname(os.path.realpath(__file__))
 
 	# Load Encoder, Decoder.
 	model_net = vqvae.VQVAE(latent_dim, hidden_dim, codebook_size)
@@ -55,6 +58,9 @@ def main():
 			loss = loss_fn(x, x_reconst, embed_loss)
 			loss.backward()
 			optimizer.step()
+
+		if epoch % 500 == 0:
+			util.save_weights(vae_net, os.join(save_dir, 'vqvae_{}.pth'.format(epoch)))
 
 
 if __name__ == '__main__':
