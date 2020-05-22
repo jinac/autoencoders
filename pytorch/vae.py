@@ -19,20 +19,27 @@ class Encoder(nn.Module):
     def __init__(self, latent_dim, hidden_dim):
         super(Encoder, self).__init__()
 
-        self.conv_layers = nn.ModuleList([
+        self.conv_net = nn.Sequential(
             nn.Conv2d(3, 32, kernel_size=4, stride=2),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
             nn.Conv2d(64, 128, kernel_size=4, stride=2),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
             nn.Conv2d(128, 256, kernel_size=4, stride=2),
-        ])
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+        )
 
         self.mu_layer = nn.Linear(hidden_dim, latent_dim)
         self.logvar_layer = nn.Linear(hidden_dim, latent_dim)
 
     def forward(self, x):
         # Convnet.
-        for layer in self.conv_layers:
-            x = F.relu(layer(x))
+        x = self.conv_net(x)
 
         # Flatten.
         x = x.view(x.size()[0], -1)
@@ -52,12 +59,19 @@ class Decoder(nn.Module):
         self.hidden_dim = hidden_dim
         self.fc_layer = nn.Linear(latent_dim, hidden_dim)
 
-        self.conv_layers = nn.ModuleList([
+        self.deconv_net = nn.Sequential(
             nn.ConvTranspose2d(hidden_dim, 128, kernel_size=5, stride=2),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
             nn.ConvTranspose2d(128, 64, kernel_size=5, stride=2),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
             nn.ConvTranspose2d(64, 32, kernel_size=6, stride=2),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
             nn.ConvTranspose2d(32, 3, kernel_size=6, stride=2),
-        ])
+            nn.Sigmoid(),
+        )
 
     def forward(self, z):
         # FC from latent to hidden dim.
@@ -67,9 +81,7 @@ class Decoder(nn.Module):
         z = z.view(z.size(0), self.hidden_dim, 1, 1)
 
         # Convnet.
-        for layer in self.conv_layers[:-1]:
-            z = F.relu(layer(z))
-        z = F.sigmoid(self.conv_layers[-1](z))
+        z = self.deconv_net(z)
 
         return z
 
