@@ -81,9 +81,9 @@ class VectorQuantizer(nn.Module):
         return loss, z_q, perplexity, min_encodings, min_encoding_indices
 
 
-class VAEEncoder(nn.Module):
+class Encoder(nn.Module):
 	def __init__(self, latent_dim, hidden_dim):
-		super(VAEEncoder, self).__init__()
+		super(Encoder, self).__init__()
 
 		self.conv_layers = nn.ModuleList([
 			nn.Conv2d(3, 32, kernel_size=4, stride=2),
@@ -109,9 +109,9 @@ class VAEEncoder(nn.Module):
 		return self.lin_layer(x)
 
 
-class VAEDecoder(nn.Module):
+class Decoder(nn.Module):
 	def __init__(self, latent_dim, hidden_dim):
-		super(VAEDecoder, self).__init__()
+		super(Decoder, self).__init__()
 
 		self.latent_dim = latent_dim
 		self.hidden_dim = hidden_dim
@@ -143,8 +143,8 @@ class VQVAE(nn.Module):
 	def __init__(self, latent_dim, hidden_dim, codebook_size, beta=0.25):
 		super(VQVAE, self).__init__()
 
-		self.encoder = VAEEncoder(latent_dim, hidden_dim)
-		self.decoder = VAEDecoder(latent_dim, hidden_dim)
+		self.encoder = Encoder(latent_dim, hidden_dim)
+		self.decoder = Decoder(latent_dim, hidden_dim)
 		self.quantizer = VectorQuantizer(codebook_size, latent_dim, beta)
 		
 	def encode(self, x):

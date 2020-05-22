@@ -1,35 +1,34 @@
 """
-Training script for vqvae
+Training script for aae.
 """
 import torch.optim as optim
 
 import data_util
-import vqvae
+import vae
 
 
 def main():
 	# Set variables.
 	img_dim = [64, 64]
-	codebook_size = 256
 	latent_dim = 32
 	hidden_dim = 1024
 	num_epochs = 5000
 	batch_size = 64
 	shuffle = True
-	num_loader_workers = 4
+	num_loader_workers = 2
 	beta = 1.0
 	cuda = True
 
 	# Load Encoder, Decoder.
-	model_net = vqvae.VQVAE(latent_dim, hidden_dim, codebook_size)
+	vae_net = vae.VAE(latent_dim, hidden_dim)
 	if cuda:
-		model_net.cuda()
+		vae_net.cuda()
 
 	# Set loss fn.
-	loss_fn = vqvae.loss_fn
+	loss_fn = vae.loss_fn
 
 	# Load optimizer.
-	optimizer = optim.Adam(model_net.parameters(), lr=0.0002)
+	optimizer = optim.Adam(vae_net.parameters(), lr=0.0002)
 
 	# Load Dataset.
 	anime_data = data_util.AnimeFaceData(img_dim, batch_size, shuffle, num_loader_workers)
@@ -51,8 +50,8 @@ def main():
 			optimizer.zero_grad()
 
 			# Run batch, calculate loss, and backprop.
-			x_reconst, embed_loss, _ = model_net.forward(x)
-			loss = loss_fn(x, x_reconst, embed_loss)
+			x_reconst, mu, logvar = vae_net.forward(x)
+			loss = loss_fn(x, x_reconst, mu, logvar, beta)
 			loss.backward()
 			optimizer.step()
 

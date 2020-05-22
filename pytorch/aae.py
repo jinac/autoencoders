@@ -1,5 +1,7 @@
 """
-Vanilla Variational Autoencoder
+Adversarial Autoencoder
+
+Using ideas from https://arxiv.org/pdf/1511.05644.pdf
 """
 
 import torch
@@ -26,8 +28,7 @@ class Encoder(nn.Module):
 			nn.Conv2d(128, 256, kernel_size=4, stride=2),
 		])
 
-		self.mu_layer = nn.Linear(hidden_dim, latent_dim)
-		self.logvar_layer = nn.Linear(hidden_dim, latent_dim)
+		self.fc_layer = nn.Linear(hidden_dim, latent_dim)
 
 	def forward(self, x):
 		# Convnet.
@@ -38,10 +39,9 @@ class Encoder(nn.Module):
 		x = x.view(x.size()[0], -1)
 
 		# Fully connected.
-		mu = self.mu_layer(x)
-		logvar = self.logvar_layer(x)
+		z = self.fc_layer(x)
 
-		return mu, logvar
+		return z
 
 
 class Decoder(nn.Module):
@@ -74,17 +74,32 @@ class Decoder(nn.Module):
 		return z
 
 
-class VAE(nn.Module):
+class Critic(nn.Module):
+	def __init__(self, latent_dim):
+		super(Critic, self).__init__()
+
+		self.latent_dim = latent_dim
+		self.fc_layers = nn.ModuleList([
+			nn.Linear(self.latent_dim, 64),
+			nn.Linear(64, 32),
+			nn.Linear(32, 32),
+		])
+
+	def forward(self, z):
+		for layer in self.fc_layers[:-1]:
+			z = F.leaky_relu(layer(z), 0.2)
+		z = F.sigmoid(self.fc_layers[-1](z))
+
+		return z
+
+
+class AAE(nn.Module):
 	def __init__(self, latent_dim, hidden_dim):
 		super(VAE, self).__init__()
 
 		self.encoder = Encoder(latent_dim, hidden_dim)
 		self.decoder = Decoder(latent_dim, hidden_dim)
-
-	def reparameterize(self, mu, logvar):
-		std = torch.exp(0.5 * logvar)
-		eps = torch.randn_like(std)
-		return mu + (eps * std)
+		self.critic = Critic(latent_dim)
 
 	def encode(self, x):
 		mu, logvar = self.encoder.forward(x)
@@ -95,6 +110,5 @@ class VAE(nn.Module):
 		return self.decoder.forward(z)
 
 	def forward(self, x):
-		mu, logvar = self.encoder.forward(x)
-		z = self.reparameterize(mu, logvar)
-		return self.decoder.forward(z), mu, logvar
+		z = self.encoder.forward(x)
+		return self.decoder.forward(z)

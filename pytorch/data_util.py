@@ -13,9 +13,12 @@ class AnimeFaceData(object):
 		self.img_dim = img_dim
 		self.pin_memory = pin_memory
 
+		# Apply random horizontal flip, 45 deg rotation, 0.1 translation x-y, rescaling.
 		self.transform = torchvision.transforms.Compose([
 			torchvision.transforms.RandomHorizontalFlip(),
-			torchvision.transforms.RandomRotation(45),
+			torchvision.transforms.RandomAffine(degrees=45,
+												translate=(0.1, 0.1),
+												scale=(0.75, 1.25)),
 			torchvision.transforms.Resize(img_dim),
 			torchvision.transforms.ToTensor(),])
 		self.img_folder = torchvision.datasets.ImageFolder(self.path, transform=self.transform)
