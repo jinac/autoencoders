@@ -16,12 +16,14 @@ def main():
     codebook_size = 256
     latent_dim = 32
     hidden_dim = 1024
-    num_epochs = 5000
+    num_epochs = 100
+    save_freq = 25
     batch_size = 64
     shuffle = True
     num_loader_workers = 4
     beta = 1.0
     cuda = True
+    learning_rate = 0.001
     save_dir = os.path.dirname(os.path.realpath(__file__))
 
     # fix seed for experiment.
@@ -43,7 +45,8 @@ def main():
 
     # Epoch loop
     for epoch in range(num_epochs):
-        print('Epoch {} of {}'.format(epoch + 1, num_epochs))
+        print('Epoch {} of {}'.format(epoch, num_epochs))
+        start = time.time()
 
         # Batch loop.
         for i_batch, batch_data in enumerate(anime_data.data_loader, 0):
@@ -63,9 +66,12 @@ def main():
             loss.backward()
             optimizer.step()
 
-        if epoch % 500 == 0:
-            util.save_weights(vae_net, os.join(save_dir, 'vqvae_{}.pth'.format(epoch)))
+        if epoch % save_freq == 0:
+            util.save_weights(vae_net, os.path.join(save_dir, 'vqvae_{}.pth'.format(epoch)))
 
+        end = time.time()
+        print('loss: ', loss)
+        print('Took {}'.format(end - start))
 
 if __name__ == '__main__':
     main()

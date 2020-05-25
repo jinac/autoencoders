@@ -8,8 +8,9 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch
 
-import data_util
 import aae
+import data_util
+import util
 
 
 def main():
@@ -17,7 +18,8 @@ def main():
     img_dim = [64, 64]
     latent_dim = 32
     hidden_dim = 1024
-    num_epochs = 5000
+    num_epochs = 100
+    save_freq = 25
     batch_size = 64
     shuffle = True
     num_loader_workers = 2
@@ -83,9 +85,12 @@ def main():
             loss.backward()
             optimizer.step()
 
-        if epoch % 500 == 0:
+        if epoch % save_freq == 0:
             util.save_weights(vae_net, os.path.join(save_dir, 'aae_{}.pth'.format(epoch)))
 
+        end = time.time()
+        print('loss: ', loss)
+        print('Took {}'.format(end - start))
 
 if __name__ == '__main__':
     main()
