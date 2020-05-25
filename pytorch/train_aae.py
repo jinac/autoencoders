@@ -26,6 +26,7 @@ def main():
     std_dev = 1.
     mu = 0.
     cuda = True
+    learning_rate = 0.001
     save_dir = os.path.dirname(os.path.realpath(__file__))
 
     # fix seed for experiment.
@@ -40,7 +41,7 @@ def main():
     loss_fn = aae.loss_fn
 
     # Load optimizer.
-    optimizer = optim.Adam(aae_net.parameters(), lr=0.0002)
+    optimizer = optim.Adam(aae_net.parameters(), lr=learning_rate)
 
     # Load Dataset.
     anime_data = data_util.AnimeFaceData(img_dim, batch_size, shuffle, num_loader_workers)

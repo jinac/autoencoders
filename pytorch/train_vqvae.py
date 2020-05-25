@@ -38,7 +38,7 @@ def main():
     loss_fn = vqvae.loss_fn
 
     # Load optimizer.
-    optimizer = optim.Adam(model_net.parameters(), lr=0.0002)
+    optimizer = optim.Adam(model_net.parameters(), lr=learning_rate)
 
     # Load Dataset.
     anime_data = data_util.AnimeFaceData(img_dim, batch_size, shuffle, num_loader_workers)

@@ -21,8 +21,8 @@ def main():
     save_freq = 25
     batch_size = 64
     shuffle = True
-    num_loader_workers = 2
-    beta = 1.0
+    num_loader_workers = 4
+    beta = 1.
     cuda = True
     learning_rate = 0.001
     save_dir = os.path.dirname(os.path.realpath(__file__))
