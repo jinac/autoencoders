@@ -11,7 +11,7 @@ import torch.nn.functional as F
 import numpy as np
 
 
-def loss_fn(x, x_reconst, critic_out, ones, beta=1.0):
+def loss_fn(x, x_reconst, critic_out, ones):
     reconst_loss = F.binary_cross_entropy(x_reconst, x, reduction='sum')
     critic_loss = F.binary_cross_entropy(critic_out, ones, reduction='sum')
     return reconst_loss + critic_loss

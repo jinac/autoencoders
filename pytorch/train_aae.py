@@ -21,7 +21,6 @@ def main():
     batch_size = 64
     shuffle = True
     num_loader_workers = 2
-    beta = 1.0
     std_dev = 1.
     mu = 0.
     cuda = True
@@ -67,7 +66,7 @@ def main():
             # Run batch, calculate loss, and backprop.
             # Train autoencoder and gan on real batch.
             x_reconst, real_critic = aae_net.forward(x)
-            loss = loss_fn(x, x_reconst, real_critic, ones, beta)
+            loss = loss_fn(x, x_reconst, real_critic, ones)
             loss.backward()
             optimizer.step()
 
