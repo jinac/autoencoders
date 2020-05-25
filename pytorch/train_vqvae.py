@@ -6,6 +6,7 @@ import os
 import torch.optim as optim
 
 import data_util
+import util
 import vqvae
 
 
@@ -22,6 +23,9 @@ def main():
     beta = 1.0
     cuda = True
     save_dir = os.path.dirname(os.path.realpath(__file__))
+
+    # fix seed for experiment.
+    util.fix_seed()
 
     # Load Encoder, Decoder.
     model_net = vqvae.VQVAE(latent_dim, hidden_dim, codebook_size)

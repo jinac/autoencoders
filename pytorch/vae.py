@@ -6,8 +6,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import numpy as np
-
 
 def loss_fn(x, x_reconst, mu, logvar, beta=1.0):
     reconst_loss = F.binary_cross_entropy(x_reconst, x, reduction='sum')

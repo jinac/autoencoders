@@ -2,7 +2,9 @@
 Training script for vae, beta-vae.
 """
 import os
+import time
 
+import torch
 import torch.optim as optim
 
 import data_util
@@ -15,13 +17,18 @@ def main():
     img_dim = [64, 64]
     latent_dim = 32
     hidden_dim = 1024
-    num_epochs = 5000
+    num_epochs = 100
+    save_freq = 25
     batch_size = 64
     shuffle = True
     num_loader_workers = 2
     beta = 1.0
     cuda = True
+    learning_rate = 0.001
     save_dir = os.path.dirname(os.path.realpath(__file__))
+
+    # fix seed for experiment.
+    util.fix_seed()
 
     # Load Encoder, Decoder.
     vae_net = vae.VAE(latent_dim, hidden_dim)
@@ -32,7 +39,7 @@ def main():
     loss_fn = vae.loss_fn
 
     # Load optimizer.
-    optimizer = optim.Adam(vae_net.parameters(), lr=0.0002)
+    optimizer = optim.Adam(vae_net.parameters(), lr=learning_rate)
 
     # Load Dataset.
     anime_data = data_util.AnimeFaceData(img_dim, batch_size, shuffle, num_loader_workers)
@@ -40,10 +47,11 @@ def main():
     # Epoch loop
     for epoch in range(1, num_epochs+1):
         print('Epoch {} of {}'.format(epoch, num_epochs))
+        start = time.time()
 
         # Batch loop.
         for i_batch, batch_data in enumerate(anime_data.data_loader, 0):
-            print('Batch {}'.format(i_batch+1))
+            # print('Batch {}'.format(i_batch+1))
 
             # Load batch.
             x, _ = batch_data
@@ -59,8 +67,12 @@ def main():
             loss.backward()
             optimizer.step()
 
-        if epoch % 500 == 0:
-            util.save_weights(vae_net, os.join(save_dir, 'vae_{}.pth'.format(epoch)))
+        if epoch % save_freq == 0:
+            util.save_weights(vae_net, os.path.join(save_dir, 'vae_{}.pth'.format(epoch)))
+
+        end = time.time()
+        print('loss: ', loss)
+        print('Took {}'.format(end - start))
 
 
 if __name__ == '__main__':

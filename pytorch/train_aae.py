@@ -26,6 +26,9 @@ def main():
     cuda = True
     save_dir = os.path.dirname(os.path.realpath(__file__))
 
+    # fix seed for experiment.
+    util.fix_seed()
+
     # Load Encoder, Decoder.
     aae_net = aae.AAE(latent_dim, hidden_dim)
     if cuda:
@@ -81,7 +84,7 @@ def main():
             optimizer.step()
 
         if epoch % 500 == 0:
-            util.save_weights(vae_net, os.join(save_dir, 'aae_{}.pth'.format(epoch)))
+            util.save_weights(vae_net, os.path.join(save_dir, 'aae_{}.pth'.format(epoch)))
 
 
 if __name__ == '__main__':
