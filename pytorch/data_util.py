@@ -22,7 +22,8 @@ class AnimeFaceData(object):
             #                                     scale=(0.75, 1.25),
             #                                     ),
             torchvision.transforms.Resize(img_dim),
-            torchvision.transforms.ToTensor(),])
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),])
         self.img_folder = torchvision.datasets.ImageFolder(self.path, transform=self.transform)
         self.data_loader = torch.utils.data.DataLoader(self.img_folder,
                                                        batch_size=self.batch_size,
