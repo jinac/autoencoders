@@ -70,7 +70,7 @@ def main():
             util.save_weights(vae_net, os.path.join(save_dir, 'vqvae_{}.pth'.format(epoch)))
 
         end = time.time()
-        print('loss: ', loss)
+        print('loss: ', train_loss / len(anime_data.img_folder))
         print('Took {}'.format(end - start))
 
 if __name__ == '__main__':

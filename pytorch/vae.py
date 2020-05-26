@@ -8,7 +8,8 @@ import torch.nn.functional as F
 
 
 def loss_fn(x, x_reconst, mu, logvar, beta=1.0):
-    reconst_loss = F.binary_cross_entropy(x_reconst, x, reduction='sum')
+    # reconst_loss = F.binary_cross_entropy(x_reconst, x, reduction='sum')
+    reconst_loss = F.mse_loss(x_reconst, x, reduction='sum')
     kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     return reconst_loss + (beta * kl_loss)
 

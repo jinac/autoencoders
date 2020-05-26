@@ -13,7 +13,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def loss_fn(x, x_reconst, embed_loss):
-    reconst_loss = F.binary_cross_entropy(x_reconst, x, reduction='sum')
+    reconst_loss = F.mse_loss(x_reconst, x, reduction='sum')
     return reconst_loss + embed_loss
 
 
