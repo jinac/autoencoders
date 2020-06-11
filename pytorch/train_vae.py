@@ -49,7 +49,7 @@ def main():
         optimizer = optim.SGD(vae_net.parameters(), lr=learning_rate)
         scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=1e-1,
                                                   epochs=num_epochs,
-                                                  steps_per_epoch=int(len(anime_data.img_folder) / batch_size))
+                                                  steps_per_epoch=10)
 
     # Epoch loop
     for epoch in range(1, num_epochs+1):
