@@ -17,14 +17,15 @@ def main():
     img_dim = [64, 64]
     latent_dim = 32
     hidden_dim = 1024
-    num_epochs = 100
-    save_freq = 25
-    batch_size = 64
+    num_epochs = 20
+    save_freq = 5
+    batch_size = 128
     shuffle = True
-    num_loader_workers = 2
+    num_loader_workers = 3
     beta = 1.
     cuda = True
-    learning_rate = 0.01
+    learning_rate = 0.001
+    adaptive = False  # True
     save_dir = os.path.dirname(os.path.realpath(__file__))
 
     # fix seed for experiment.
@@ -38,11 +39,17 @@ def main():
     # Set loss fn.
     loss_fn = vae.loss_fn
 
-    # Load optimizer.
-    optimizer = optim.Adam(vae_net.parameters(), lr=learning_rate)
-
     # Load Dataset.
     anime_data = data_util.AnimeFaceData(img_dim, batch_size, shuffle, num_loader_workers)
+
+    # Load optimizer.
+    if adaptive:
+        optimizer = optim.Adam(vae_net.parameters(), lr=learning_rate)
+    else:
+        optimizer = optim.SGD(vae_net.parameters(), lr=learning_rate)
+        scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=1e-1,
+                                                  epochs=num_epochs,
+                                                  steps_per_epoch=int(len(anime_data.img_folder) / batch_size))
 
     # Epoch loop
     for epoch in range(1, num_epochs+1):
@@ -68,13 +75,25 @@ def main():
             train_loss += loss.item()
             loss.backward()
             optimizer.step()
+            if not adaptive:
+                scheduler.step()
 
         if epoch % save_freq == 0:
-            util.save_weights(vae_net, os.path.join(save_dir, 'vae_{}.pth'.format(epoch)))
+            if adaptive:
+                o = 'adaptive'
+            else:
+                o = 'cyclic'
+            util.save_weights(vae_net, os.path.join(save_dir, 'vae_{}_{}.pth'.format(o, epoch)))
 
         end = time.time()
         print('loss: ', train_loss / len(anime_data.img_folder))
         print('Took {}'.format(end - start))
+
+        if adaptive:
+            o = 'adaptive'
+        else:
+            o = 'cyclic'
+        util.save_weights(vae_net, os.path.join(save_dir, 'vae_{}_{}.pth'.format(o, epoch)))
 
 
 if __name__ == '__main__':
